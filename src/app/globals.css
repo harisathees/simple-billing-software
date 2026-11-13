@@ -479,3 +479,30 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .toolbar-right { flex: 1 1 100%; margin-left: 0; justify-content: space-between; }
 .toolbar-right .search-box { flex: 0 1 400px; }
 @media (max-width: 720px) { .toolbar-right .search-box { flex: 1 1 100%; } }
+
+/* ---- login page ---- */
+.login-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; position: relative; }
+.login-theme { position: absolute; top: 16px; right: 16px; }
+.login-card {
+  width: min(380px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px 24px 22px; display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .06);
+}
+.login-card h1 { margin: 8px 0 10px; font-size: 22px; text-align: center; }
+.login-card > .muted { text-align: center; margin: 0 0 14px; font-size: 14px; }
+.login-card label { margin-top: 8px; }
+.login-icon {
+  width: 52px; height: 52px; margin: 0 auto; border-radius: 14px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent);
+}
+.login-icon svg { width: 26px; height: 26px; }
+.pw-field { position: relative; }
+.pw-field input { padding-right: 42px; }
+.pw-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; padding: 0; border: none; background: none; color: var(--muted);
+  display: grid; place-items: center;
+}
+.pw-toggle svg { width: 18px; height: 18px; }
+.login-btn { margin-top: 16px; height: 44px; font-size: 16px; }
+.login-card .error { margin-top: 8px; }

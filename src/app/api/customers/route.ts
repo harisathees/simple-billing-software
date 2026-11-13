@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { errorResponse, supabase } from "@/lib/server/supabase";
 import type { Customer } from "@/lib/types";
@@ -7,6 +8,7 @@ import type { Customer } from "@/lib/types";
 export async function GET(req: Request) {
   await connection();
   try {
+    await requireUser();
     const digits = (new URL(req.url).searchParams.get("phone") || "").replace(/\D/g, "").slice(0, 15);
     if (digits.length < 2) return Response.json([]);
 

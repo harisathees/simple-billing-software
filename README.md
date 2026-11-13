@@ -6,6 +6,7 @@ printable invoice, download the invoice as a PDF, and send it to the customer on
 - **Next.js 16** (App Router) + **Supabase** (Postgres + Storage)
 - Bills and shop details are stored in Supabase; the **shop logo** is stored in a Supabase Storage bucket
 - **Invoice PDFs are never stored** — they're generated in the browser when you view, download or share
+- **Login with Supabase Auth** — no public sign-up; the owner creates staff logins from the terminal
 - Light / dark theme, phone-friendly layout, search, and infinite scroll (10 bills at a time)
 
 ---
@@ -35,10 +36,11 @@ cp .env.example .env.local
 |---|---|---|
 | `SUPABASE_URL` | Supabase → Project Settings → API Keys (project URL) | the app |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → **Secret key** (`sb_secret_…`) or the legacy `service_role` key | the app |
+| `SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys → **Publishable key** (`sb_publishable_…`) or the legacy `anon` key | login |
 | `SUPABASE_DB_URL` | Supabase → **Connect** (top bar) → **Session pooler** → URI, with your database password filled in | migrations only |
 | `SUPABASE_LOGO_BUCKET` | leave as `shop-assets` | the app |
 | `NEXT_PUBLIC_DEFAULT_COUNTRY_CODE` | `91` for India — added to 10-digit WhatsApp numbers | the app |
-| `WHATSAPP_*` | optional, see [WhatsApp sending](#7-whatsapp-sending) | auto-send |
+| `WHATSAPP_*` | optional, see [WhatsApp sending](#8-whatsapp-sending) | auto-send |
 
 > **Never** rename a secret to start with `NEXT_PUBLIC_` — those values are copied into
 > the browser bundle. `.env.local` is git-ignored, so it won't be committed.
@@ -91,7 +93,40 @@ records them as applied.
 
 Never edit a migration that has already been pushed — add a new one instead.
 
-## 5. Run
+## 5. Create logins
+
+There is **no sign-up page**. Only the owner can create accounts, from the project folder:
+
+```bash
+npm run user:add -- owner@myshop.com        # asks for the password (hidden, min 8 chars)
+npm run user:list                            # who can log in, last sign-in
+npm run user:password -- owner@myshop.com    # change a password
+npm run user:remove -- staff@myshop.com      # delete a login
+```
+
+- No confirmation email is sent — the account works immediately.
+- Passwords are typed at a hidden prompt and are **never saved in any file** (that's why logins
+  aren't created in a SQL migration: migrations are committed to git).
+- Only accounts created this way are marked `staff` (`app_metadata.role`, which users can't
+  change themselves). Any other Supabase account is refused, even with a correct password.
+
+**Recommended:** also turn off public sign-ups in Supabase → **Authentication → Sign In /
+Providers → "Allow new users to sign up"** → off. The app already refuses non-staff accounts;
+this stops such accounts being created at all.
+
+### Is Supabase Auth free?
+
+Yes for this app. The Free plan includes **50,000 monthly active users** at $0
+([pricing](https://supabase.com/pricing)). Things to know:
+
+- Supabase's built-in email sender is limited to **2 emails per hour**
+  ([rate limits](https://supabase.com/docs/guides/auth/rate-limits)). This app doesn't send
+  any auth emails (no sign-up, no confirmation), so it isn't affected. Password-reset emails
+  would need a custom SMTP server; use `npm run user:password` instead.
+- Password logins are rate-limited per IP (150 per 5 minutes by default).
+- Free projects **pause after 1 week without activity** — un-pause from the dashboard.
+
+## 6. Run
 
 ```bash
 npm run dev            # development  → http://localhost:3000
@@ -105,10 +140,10 @@ npm run build
 npm start
 ```
 
-Open the app, click the **⚙** icon and fill in your shop details and logo. They appear in
-the header and on every invoice.
+Open the app, **sign in** with a login from step 5, then click the **⚙** icon and fill in your
+shop details and logo. They appear in the header and on every invoice. The logout icon (top right) signs you out.
 
-## 6. Using the app
+## 7. Using the app
 
 | Action | PC | Phone |
 |---|---|---|
@@ -125,7 +160,7 @@ the header and on every invoice.
   name and address.
 - The **🌙 / ☀** icon switches between light (default) and dark theme.
 
-## 7. WhatsApp sending
+## 8. WhatsApp sending
 
 Without extra setup, **Send to WhatsApp / Share** works like this:
 
@@ -141,8 +176,13 @@ haven't written to you in the last 24 hours, WhatsApp requires an approved templ
 `{{1}}` customer name, `{{2}}` invoice no, `{{3}}` total (set `WHATSAPP_TEMPLATE_BODY_PARAMS=false`
 if your template has none).
 
-## 8. Security
+## 9. Security
 
+- **Login required everywhere.** `src/proxy.ts` sends logged-out visitors to `/login`, and
+  every API route also calls `requireUser()` itself, so the data can't be reached without a
+  valid staff session — not even by calling the API directly.
+- Sessions are kept in **httpOnly cookies** set by the server (JavaScript in the page can't read
+  them) and are verified with Supabase on each request, so a forged cookie is rejected.
 - **Row Level Security is on with no policies** on both tables: the public/anon key can't read
   or write anything.
 - Only the Next.js server (`src/app/api/*`) talks to Supabase, using `SUPABASE_SECRET_KEY`.
@@ -161,10 +201,10 @@ It builds the app, then searches every browser file (`.next/static`, `public/`, 
 pages) and the live API responses of the running app for the values in `.env.local`. It prints
 **where** something was found, never the value. Run it again whenever you add a new secret.
 
-> ⚠ **There is no login yet.** Anyone who can open the app's address can view and change bills.
-> That's fine on `localhost`; add authentication (e.g. Supabase Auth) before putting it online.
+> Before putting it online: use HTTPS (cookies are marked `Secure` in production), and turn
+> off public sign-ups in Supabase as described in step 5.
 
-## 9. Project structure
+## 10. Project structure
 
 ```
 src/
@@ -175,17 +215,21 @@ src/
     api/shop/             shop details (GET, PUT)
     api/shop/logo/        logo upload / delete / serve
     api/whatsapp/         optional Cloud API sending
+    api/auth/             login, logout, me
+    login/                sign-in page
     layout.tsx, page.tsx, globals.css
   components/             BillingApp, BillsTable, BillFormDialog, InvoiceDialog,
                           InvoiceSheet (invoice design), SettingsDialog, ThemeToggle, …
   lib/
-    server/               Supabase client, validation (server-only)
+    server/               Supabase client, auth (requireUser), validation (server-only)
     api.ts                browser → /api calls
     pdf.tsx               PDF generation (html2canvas + jsPDF)
     share.ts              WhatsApp send logic
     format.ts             money, dates, amount in words
 supabase/migrations/      database migrations
+src/proxy.ts              login gate for every page and API request
 scripts/db.mjs            npm run db:push / db:status / db:new
+scripts/users.mjs         npm run user:add / user:list / user:password / user:remove
 scripts/security-scan.py  npm run security:scan
 ```
 
@@ -199,4 +243,8 @@ scripts/security-scan.py  npm run security:scan
 | `npm run db:push` | apply new migrations to Supabase |
 | `npm run db:status` | list applied migrations |
 | `npm run db:new -- <name>` | create a new migration file |
+| `npm run user:add -- <email>` | create a login (password asked at a hidden prompt) |
+| `npm run user:list` | list logins |
+| `npm run user:password -- <email>` | change a password |
+| `npm run user:remove -- <email>` | delete a login |
 | `npm run security:scan` | build and check that no secrets reach the browser |

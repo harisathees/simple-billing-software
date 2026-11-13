@@ -12,7 +12,8 @@ for line in open(os.path.join(root, ".env.local")):
         k, v = line.split("=", 1); env[k.strip()] = v.strip().strip('"').strip("'")
 
 secrets = {}  # label -> value (never printed)
-for k in ["SUPABASE_SECRET_KEY", "SUPABASE_DB_URL", "WHATSAPP_TOKEN"]:
+# SUPABASE_PUBLISHABLE_KEY isn't a secret, but this app keeps it server-side, so flag it too.
+for k in ["SUPABASE_SECRET_KEY", "SUPABASE_DB_URL", "WHATSAPP_TOKEN", "SUPABASE_PUBLISHABLE_KEY"]:
     if env.get(k): secrets[k] = env[k]
 if env.get("SUPABASE_DB_URL"):
     pw = urllib.parse.urlparse(env["SUPABASE_DB_URL"]).password

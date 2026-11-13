@@ -3,6 +3,11 @@ import type { Bill, BillInput, BillsPage, Customer, Shop, ShopInput } from "./ty
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
+  // Session expired or logged out in another tab → back to the login page.
+  if (res.status === 401 && !url.startsWith("/api/auth/") && typeof window !== "undefined") {
+    window.location.replace("/login");
+    return new Promise<T>(() => {});   // never resolves; the page is navigating away
+  }
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error || `Request failed (${res.status})`);
@@ -16,6 +21,11 @@ const json = (method: string, data: unknown): RequestInit => ({
 });
 
 export const api = {
+  login: (email: string, password: string) =>
+    call<{ email: string }>("/api/auth/login", json("POST", { email, password })),
+  logout: () => call<void>("/api/auth/logout", { method: "POST" }),
+  me: () => call<{ email: string }>("/api/auth/me"),
+
   listBills: (p: { q?: string; offset?: number; limit?: number }, signal?: AbortSignal) => {
     const sp = new URLSearchParams({ offset: String(p.offset ?? 0), limit: String(p.limit ?? 10) });
     if (p.q) sp.set("q", p.q);

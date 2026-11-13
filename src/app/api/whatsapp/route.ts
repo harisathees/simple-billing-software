@@ -1,6 +1,7 @@
 // Optional fully-automatic sending through the WhatsApp Cloud API (Meta).
 // The browser generates the PDF and posts it here; we upload it to WhatsApp's
 // own media storage and send it. Nothing is saved in Supabase.
+import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { money, pdfName, waNumber } from "@/lib/format";
 import { BadRequest, errorResponse, supabase } from "@/lib/server/supabase";
@@ -19,7 +20,12 @@ const enabled = () => Boolean(cfg().token && cfg().phoneId);
 // GET /api/whatsapp — tells the UI whether automatic sending is configured
 export async function GET() {
   await connection();
-  return Response.json({ enabled: enabled() });
+  try {
+    await requireUser();
+    return Response.json({ enabled: enabled() });
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
 
 async function graph(path: string, init: RequestInit) {
@@ -39,6 +45,7 @@ async function graph(path: string, init: RequestInit) {
 // POST /api/whatsapp — multipart: billId, file (application/pdf)
 export async function POST(req: Request) {
   try {
+    await requireUser();
     if (!enabled()) throw new BadRequest("WhatsApp Cloud API is not configured in .env.local.");
     const { phoneId, template, lang } = cfg();
 

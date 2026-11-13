@@ -25,6 +25,9 @@ export const LOGO_BUCKET = process.env.SUPABASE_LOGO_BUCKET || "shop-assets";
 /** Turn any thrown error into a JSON response with a sensible status code. */
 export function errorResponse(err: unknown) {
   if (err instanceof ConfigError) return Response.json({ error: err.message }, { status: 503 });
+  if ((err as { status?: number })?.status === 401) {
+    return Response.json({ error: "Please log in." }, { status: 401 });
+  }
   const e = err as { code?: string; message?: string; status?: number };
   if (e?.code === "23505") {
     return Response.json({ error: "That Invoice No already exists." }, { status: 409 });

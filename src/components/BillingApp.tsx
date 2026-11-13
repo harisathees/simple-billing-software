@@ -8,7 +8,7 @@ import BillsTable from "./BillsTable";
 import InvoiceDialog from "./InvoiceDialog";
 import SettingsDialog from "./SettingsDialog";
 import ThemeToggle from "./ThemeToggle";
-import { GearIcon, PlusIcon, SearchIcon } from "./icons";
+import { GearIcon, LogoutIcon, PlusIcon, SearchIcon } from "./icons";
 
 const PAGE_SIZE = 10;
 
@@ -29,6 +29,7 @@ export default function BillingApp() {
   const [moreError, setMoreError] = useState("");
 
   const [shop, setShop] = useState<Shop>(EMPTY_SHOP);
+  const [userEmail, setUserEmail] = useState("");
   const [cloudApi, setCloudApi] = useState(false);
 
   const [form, setForm] = useState<{ open: boolean; bill: Bill | null }>({ open: false, bill: null });
@@ -51,8 +52,8 @@ export default function BillingApp() {
   /* ---- shop details + WhatsApp mode ---- */
   useEffect(() => {
     let live = true;
-    Promise.all([api.getShop(), api.whatsappStatus()]).then(
-      ([s, wa]) => { if (live) { setShop(s); setCloudApi(wa.enabled); } },
+    Promise.all([api.getShop(), api.whatsappStatus(), api.me()]).then(
+      ([s, wa, me]) => { if (live) { setShop(s); setCloudApi(wa.enabled); setUserEmail(me.email); } },
       () => { /* the bills request below shows the error screen */ },
     );
     return () => { live = false; };
@@ -178,6 +179,10 @@ export default function BillingApp() {
     }
   }
 
+  async function logout() {
+    try { await api.logout(); } finally { window.location.replace("/login"); }
+  }
+
   function retry() {
     setLoad({ state: "loading" });
     firstFetch.current = true;
@@ -204,6 +209,12 @@ export default function BillingApp() {
             title="Shop settings" aria-label="Shop settings"
           >
             <GearIcon />
+          </button>
+          <button
+            className="icon-only" onClick={logout}
+            title={userEmail ? `Log out (${userEmail})` : "Log out"} aria-label="Log out"
+          >
+            <LogoutIcon />
           </button>
         </div>
       </header>
@@ -290,7 +301,7 @@ function SetupHelp({ message, onRetry }: { message: string; onRetry: () => void 
       <h2>Can&apos;t reach the database</h2>
       <p className="error">{message}</p>
       <ol>
-        <li>Check <code>SUPABASE_URL</code> and <code>SUPABASE_SECRET_KEY</code> in <code>.env.local</code>.</li>
+        <li>Check <code>SUPABASE_URL</code>, <code>SUPABASE_SECRET_KEY</code> and <code>SUPABASE_PUBLISHABLE_KEY</code> in <code>.env.local</code>.</li>
         <li>Create the tables: run <code>npm run db:push</code> in the project folder (see README).</li>
         <li>Click Retry.</li>
       </ol>

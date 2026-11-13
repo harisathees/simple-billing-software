@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { errorResponse, supabase } from "@/lib/server/supabase";
 import { readShopRow, toShop } from "@/lib/server/shop";
@@ -7,6 +8,7 @@ import { parseShop } from "@/lib/server/validate";
 export async function GET() {
   await connection();
   try {
+    await requireUser();
     return Response.json(toShop(await readShopRow()));
   } catch (err) {
     return errorResponse(err);
@@ -16,6 +18,7 @@ export async function GET() {
 // PUT /api/shop — save shop details (the logo has its own route)
 export async function PUT(req: Request) {
   try {
+    await requireUser();
     const shop = parseShop(await req.json());
     const { data, error } = await supabase()
       .from("shop_settings")

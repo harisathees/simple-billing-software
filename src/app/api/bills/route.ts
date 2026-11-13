@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { errorResponse, supabase } from "@/lib/server/supabase";
 import { BILL_COLUMNS, normalizeBill, parseBill } from "@/lib/server/validate";
@@ -10,6 +11,7 @@ const likeEscape = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m);
 export async function GET(req: Request) {
   await connection(); // always read live data, never prerender
   try {
+    await requireUser();
     const sp = new URL(req.url).searchParams;
     const limit = Math.min(50, Math.max(1, Number(sp.get("limit")) || 10));
     const offset = Math.max(0, Math.floor(Number(sp.get("offset")) || 0));
@@ -48,6 +50,7 @@ export async function GET(req: Request) {
 // POST /api/bills — create a bill
 export async function POST(req: Request) {
   try {
+    await requireUser();
     const bill = parseBill(await req.json());
     const { data, error } = await supabase().from("bills").insert(bill).select(BILL_COLUMNS).single();
     if (error) throw error;

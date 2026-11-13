@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/server/auth";
 import { BadRequest, errorResponse, supabase } from "@/lib/server/supabase";
 import { BILL_COLUMNS, normalizeBill, parseBill } from "@/lib/server/validate";
 
@@ -10,6 +11,7 @@ function billId(raw: string) {
 // PUT /api/bills/:id — update a bill
 export async function PUT(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   try {
+    await requireUser();
     const id = billId((await ctx.params).id);
     const bill = parseBill(await req.json());
     const { data, error } = await supabase()
@@ -28,6 +30,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
 // DELETE /api/bills/:id
 export async function DELETE(_req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   try {
+    await requireUser();
     const id = billId((await ctx.params).id);
     const { error } = await supabase().from("bills").delete().eq("id", id);
     if (error) throw error;

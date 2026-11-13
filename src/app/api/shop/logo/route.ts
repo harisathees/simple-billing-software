@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { BadRequest, errorResponse, LOGO_BUCKET, supabase } from "@/lib/server/supabase";
 import { readShopRow, toShop } from "@/lib/server/shop";
@@ -9,6 +10,7 @@ const TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg",
 export async function GET() {
   await connection();
   try {
+    await requireUser();
     const { logo_path } = await readShopRow();
     if (!logo_path) return new Response("No logo", { status: 404 });
     const { data, error } = await supabase().storage.from(LOGO_BUCKET).download(logo_path);
@@ -16,8 +18,9 @@ export async function GET() {
     return new Response(data, {
       headers: {
         "Content-Type": data.type || "image/png",
-        // URL includes ?v=<path>, so a new logo gets a new URL; safe to cache.
-        "Cache-Control": "public, max-age=31536000, immutable",
+        // Logged-in users only, so never in shared/CDN caches. URL includes ?v=<path>,
+        // so a new logo gets a new URL and the browser copy can be kept.
+        "Cache-Control": "private, max-age=31536000, immutable",
       },
     });
   } catch (err) {
@@ -28,6 +31,7 @@ export async function GET() {
 // POST /api/shop/logo — upload a new logo (multipart field "file")
 export async function POST(req: Request) {
   try {
+    await requireUser();
     const form = await req.formData();
     const file = form.get("file");
     if (!(file instanceof File)) throw new BadRequest("No file uploaded.");
@@ -61,6 +65,7 @@ export async function POST(req: Request) {
 // DELETE /api/shop/logo — remove the logo
 export async function DELETE() {
   try {
+    await requireUser();
     const db = supabase();
     const old = await readShopRow();
     const { data, error } = await db

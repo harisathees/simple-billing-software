@@ -24,6 +24,7 @@ User-facing docs are in `README.md`; this file is for coding agents.
 | Production build | `npm run build` |
 | Secret-leak check | `npm run security:scan` (builds, then scans browser output; needs Python 3) |
 | DB migrations | `npm run db:push` · `npm run db:status` · `npm run db:new -- <name>` |
+| Logins | `npm run user:add -- <email>` · `user:list` · `user:password -- <email>` · `user:remove -- <email>` |
 
 Before finishing any change: `tsc`, `lint` and `build` must pass. Run `security:scan` after
 touching env vars, API routes, or anything under `src/lib/server/`.
@@ -31,14 +32,23 @@ touching env vars, API routes, or anything under `src/lib/server/`.
 ## Architecture
 
 ```
-Browser (client components)  ──fetch──▶  /api/* route handlers  ──secret key──▶  Supabase
-src/components/*, src/lib/{api,pdf,share,format}.ts     src/app/api/**, src/lib/server/*
+Browser (client components) ──fetch──▶ src/proxy.ts ──▶ /api/* route handlers ──secret key──▶ Supabase
+src/components/*, src/lib/{api,pdf,share,format}.ts   (login gate)   src/app/api/**, src/lib/server/*
 ```
 
 - **The browser never talks to Supabase.** All DB/Storage access goes through
   `src/app/api/**` using the client from `src/lib/server/supabase.ts`.
 - `src/lib/server/*` begins with `import "server-only"` — keep it that way; never import
   these files from a component.
+- **Auth** (Supabase Auth, email + password, `@supabase/ssr`):
+  - `src/proxy.ts` refreshes session cookies and redirects logged-out page requests to
+    `/login` (401 JSON for `/api/*`). Public paths: `/login`, `/api/auth/login` only.
+  - **Every route handler must call `await requireUser()`** (`src/lib/server/auth.ts`) first,
+    inside its `try`. Proxy is only the first gate (Next docs: don't rely on it alone).
+  - Only users with `app_metadata.role === "staff"` are allowed. That role is set solely by
+    `scripts/users.mjs` with the secret key. There is **no sign-up** — don't add one.
+  - Session cookies are `httpOnly`; the publishable key is used server-side only.
+  - `src/lib/api.ts` redirects to `/login` on any 401 from a non-auth route.
 - Bills: `GET /api/bills?offset&limit&q` is paginated (10 per page, newest `invoice_no`
   first) and searched server-side via the generated `search_text` column. The client
   (`BillingApp.tsx`) keeps a list + `nextOffset` and loads more with an IntersectionObserver.
@@ -54,7 +64,8 @@ src/components/*, src/lib/{api,pdf,share,format}.ts     src/app/api/**, src/lib/
 ## Rules
 
 ### Security
-- Secrets (`SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`, `WHATSAPP_TOKEN`) are server-only.
+- Secrets (`SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`, `WHATSAPP_TOKEN`) are server-only;
+  `SUPABASE_PUBLISHABLE_KEY` is also kept server-side by design.
   **Never** prefix them with `NEXT_PUBLIC_`, read them in a client component, or return
   them in a response. The only public var is `NEXT_PUBLIC_DEFAULT_COUNTRY_CODE`.
 - Never commit `.env.local`. Add new variables to `.env.example` (empty value + comment)
@@ -64,7 +75,9 @@ src/components/*, src/lib/{api,pdf,share,format}.ts     src/app/api/**, src/lib/
   policies first.
 - Validate and recompute on the server: `parseBill` (`src/lib/server/validate.ts`)
   recomputes every `amount` and the `total` — never trust totals from the client.
-- There is no auth yet. Don't claim the app is safe to deploy publicly.
+- Never create users or store passwords/hashes in SQL migrations — the repo is public.
+  Use `npm run user:add`.
+- Responses only for logged-in users must not use `Cache-Control: public` (see the logo route).
 
 ### Database
 - Schema changes go in a **new** file via `npm run db:new -- <name>`; never edit a
