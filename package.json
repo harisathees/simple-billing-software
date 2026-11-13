@@ -1,0 +1,32 @@
+{
+  "name": "billing-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:push": "node scripts/db.mjs push",
+    "db:status": "node scripts/db.mjs status",
+    "db:new": "node scripts/db.mjs new",
+    "security:scan": "next build && python3 scripts/security-scan.py ."
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.4",
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "supabase": "^2.122.0",
+    "typescript": "^5"
+  }
+}
