@@ -1,0 +1,9 @@
+# Netlify settings kept in the repo (build command, publish dir and the Next.js
+# plugin are configured in the Netlify UI / detected automatically).
+[build.environment]
+  # These variables are NOT secrets (app name, bucket name, Android package id and
+  # certificate fingerprint — Android requires the last two to be public). Their
+  # values naturally appear in the code, so Netlify's secret scanner would fail
+  # the build. Real secrets (SUPABASE_SECRET_KEY, SUPABASE_PUBLISHABLE_KEY, …)
+  # are still scanned.
+  SECRETS_SCAN_OMIT_KEYS = "APP_NAME,APP_SHORT_NAME,SUPABASE_LOGO_BUCKET,TWA_PACKAGE_NAME,TWA_SHA256_FINGERPRINTS,NEXT_PUBLIC_DEFAULT_COUNTRY_CODE"

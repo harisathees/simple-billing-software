@@ -206,7 +206,12 @@ shows the site full-screen with no address bar.
 your own server) — Bubblewrap can't use `localhost`. Bubblewrap downloads a JDK and the Android
 SDK the first time it runs.
 
-1. **Deploy** the app with all `.env.local` values set on the host.
+1. **Deploy** the app with all `.env.local` values set on the host (except `SUPABASE_DB_URL`,
+   which is only for migrations).
+   - **Netlify:** `netlify.toml` tells Netlify's secret scanner to skip the variables that
+     aren't secret (`APP_NAME`, `SUPABASE_LOGO_BUCKET`, `TWA_*`, …). Without it the build fails
+     with "Secrets scanning found secrets in build", because e.g. the value `Billing` appears in
+     the code. Your real keys are still scanned.
 2. **Create the Android project** (inside this repo, in `android/`, which is git-ignored except
    `twa-manifest.json`):
    ```bash
