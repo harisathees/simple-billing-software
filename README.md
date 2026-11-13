@@ -8,6 +8,7 @@ printable invoice, download the invoice as a PDF, and send it to the customer on
 - **Invoice PDFs are never stored** — they're generated in the browser when you view, download or share
 - **Login with Supabase Auth** — no public sign-up; the owner creates staff logins from the terminal
 - Light / dark theme, phone-friendly layout, search, and infinite scroll (10 bills at a time)
+- **Installable app (PWA)** and ready for **Bubblewrap** to build an Android **APK / AAB**
 
 ---
 
@@ -40,6 +41,8 @@ cp .env.example .env.local
 | `SUPABASE_DB_URL` | Supabase → **Connect** (top bar) → **Session pooler** → URI, with your database password filled in | migrations only |
 | `SUPABASE_LOGO_BUCKET` | leave as `shop-assets` | the app |
 | `NEXT_PUBLIC_DEFAULT_COUNTRY_CODE` | `91` for India — added to 10-digit WhatsApp numbers | the app |
+| `APP_NAME`, `APP_SHORT_NAME` | name under the installed app icon (default "Billing") | PWA / APK |
+| `TWA_PACKAGE_NAME`, `TWA_SHA256_FINGERPRINTS` | from Bubblewrap, see [Android app](#10-android-app-apk-with-bubblewrap) | APK |
 | `WHATSAPP_*` | optional, see [WhatsApp sending](#8-whatsapp-sending) | auto-send |
 
 > **Never** rename a secret to start with `NEXT_PUBLIC_` — those values are copied into
@@ -176,7 +179,74 @@ haven't written to you in the last 24 hours, WhatsApp requires an approved templ
 `{{1}}` customer name, `{{2}}` invoice no, `{{3}}` total (set `WHATSAPP_TEMPLATE_BODY_PARAMS=false`
 if your template has none).
 
-## 9. Security
+## 9. Install as an app (PWA)
+
+When the site is served over **HTTPS**, browsers offer to install it:
+
+- **Android (Chrome):** menu ⋮ → **Install app** (or "Add to Home screen").
+- **iPhone (Safari):** Share → **Add to Home Screen**.
+- **PC (Chrome/Edge):** install icon in the address bar.
+
+It opens full-screen with its own icon. Long-press the icon for the **New bill** shortcut.
+
+What's included: `src/app/manifest.ts` (→ `/manifest.webmanifest`), icons in `public/icons/`
+(normal + *maskable* for Android's round/squircle masks), and a service worker `public/sw.js`
+that caches **only** the app's static files and shows `public/offline.html` with no connection.
+Bills and customer data are **never** cached on the device — they always come from the server.
+
+> The service worker only runs in production (`npm run build && npm start`), not in `npm run dev`.
+
+## 10. Android app (APK) with Bubblewrap
+
+[Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) wraps the PWA in a
+Trusted Web Activity: a real Android app (APK for sideloading, AAB for Google Play) that
+shows the site full-screen with no address bar.
+
+**Requirements:** the app must be **deployed on a public HTTPS address** (e.g. Vercel, Netlify,
+your own server) — Bubblewrap can't use `localhost`. Bubblewrap downloads a JDK and the Android
+SDK the first time it runs.
+
+1. **Deploy** the app with all `.env.local` values set on the host.
+2. **Create the Android project** (inside this repo, in `android/`, which is git-ignored except
+   `twa-manifest.json`):
+   ```bash
+   npm i -g @bubblewrap/cli
+   bubblewrap init --manifest https://YOUR-DOMAIN/manifest.webmanifest --directory android
+   ```
+   Answer the questions — choose a package name such as `com.yourshop.billing`, and let it
+   **create a new signing key**. Keep the keystore file and its passwords safe and **never commit
+   them** (`*.keystore`, `*.jks` are git-ignored). Losing the key means you can't update the app.
+3. **Build:**
+   ```bash
+   cd android
+   bubblewrap build
+   ```
+   You get `app-release-signed.apk` (install on phones) and `app-release-bundle.aab` (Google Play).
+4. **Link the app to the site (removes the address bar).** Get the key's SHA-256 fingerprint:
+   ```bash
+   keytool -list -v -keystore android.keystore -alias android   # or: bubblewrap fingerprint list
+   ```
+   Set these on your host and redeploy:
+   ```
+   TWA_PACKAGE_NAME=com.yourshop.billing
+   TWA_SHA256_FINGERPRINTS=AB:CD:...:EF
+   ```
+   Check that `https://YOUR-DOMAIN/.well-known/assetlinks.json` shows your package and fingerprint.
+   If you publish on Google Play with *Play App Signing*, also add Play's **app signing key**
+   fingerprint (Play Console → Setup → App integrity), comma-separated.
+5. **Install** on a phone: copy the APK over, or `adb install app-release-signed.apk`.
+
+If the app opens with a browser address bar at the top, the assetlinks check failed — re-check
+the package name and fingerprint, then clear Chrome's data on the phone and reopen the app.
+
+**In the APK:** login works the same (cookies live in Chrome on the phone), and
+**Send to WhatsApp / Share** opens Android's share sheet with the **PDF attached** — pick WhatsApp
+and the customer's chat.
+
+When you change the app's name, icons or colours, run `bubblewrap update` then `bubblewrap build`
+again (and bump the version when asked) so installed apps pick up the change.
+
+## 11. Security
 
 - **Login required everywhere.** `src/proxy.ts` sends logged-out visitors to `/login`, and
   every API route also calls `requireUser()` itself, so the data can't be reached without a
@@ -204,7 +274,7 @@ pages) and the live API responses of the running app for the values in `.env.loc
 > Before putting it online: use HTTPS (cookies are marked `Secure` in production), and turn
 > off public sign-ups in Supabase as described in step 5.
 
-## 10. Project structure
+## 12. Project structure
 
 ```
 src/
@@ -217,6 +287,8 @@ src/
     api/whatsapp/         optional Cloud API sending
     api/auth/             login, logout, me
     login/                sign-in page
+    manifest.ts           PWA manifest (/manifest.webmanifest)
+    .well-known/assetlinks.json/  Android app ↔ site link (from TWA_* env vars)
     layout.tsx, page.tsx, globals.css
   components/             BillingApp, BillsTable, BillFormDialog, InvoiceDialog,
                           InvoiceSheet (invoice design), SettingsDialog, ThemeToggle, …
@@ -230,6 +302,8 @@ supabase/migrations/      database migrations
 src/proxy.ts              login gate for every page and API request
 scripts/db.mjs            npm run db:push / db:status / db:new
 scripts/users.mjs         npm run user:add / user:list / user:password / user:remove
+public/sw.js              service worker (static files only, offline page)
+public/icons/             app icons (normal + maskable) and shortcut icon
 scripts/security-scan.py  npm run security:scan
 ```
 

@@ -50,5 +50,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except Next.js assets and static image files.
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)"],
+  // PWA/Android files are public too: manifest, service worker, offline page, assetlinks.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|offline\\.html|\\.well-known/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
+  ],
 };

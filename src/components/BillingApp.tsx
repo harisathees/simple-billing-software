@@ -74,6 +74,12 @@ export default function BillingApp() {
         setList({ bills: page.bills, total: page.total, nextOffset: page.nextOffset, q });
         setNextInvoiceNo(page.nextInvoiceNo);
         setLoad({ state: "ready" });
+        // App shortcut ("New bill" on the home-screen icon) → open the form once.
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get("new") === "1") {
+          window.history.replaceState(null, "", window.location.pathname);
+          setForm({ open: true, bill: null });
+        }
       }, (err: Error) => {
         if (id !== reqId.current) return;
         setLoad((l) => (l.state === "ready" ? l : { state: "error", message: err.message }));

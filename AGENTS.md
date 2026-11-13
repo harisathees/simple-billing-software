@@ -108,6 +108,19 @@ src/components/*, src/lib/{api,pdf,share,format}.ts   (login gate)   src/app/api
 - After changing the layout, generate a PDF and check it still fits on one page for a
   short bill (`ih <= ph * 1.25` path in `pdf.tsx`).
 
+### PWA / Android (Bubblewrap TWA)
+- Manifest: `src/app/manifest.ts`. Icons in `public/icons/` (keep a `maskable` 512px with the
+  artwork inside the central 80%). Service worker: `public/sw.js`, registered in production only
+  (`ServiceWorkerRegister.tsx`).
+- **The service worker must never cache `/api/*`, pages with data, or the logo** — only hashed
+  `/_next/static/*`, `/icons/*` and `offline.html`. Bump `VERSION` in `sw.js` when changing it.
+- These paths are public in the `src/proxy.ts` matcher (fetched without cookies by browsers,
+  Bubblewrap and Android): `manifest.webmanifest`, `sw.js`, `offline.html`, `.well-known/`,
+  image files. Don't put anything private under them.
+- `/.well-known/assetlinks.json` is built from `TWA_PACKAGE_NAME` + `TWA_SHA256_FINGERPRINTS`.
+- Never commit `android/` build output, `*.keystore`, `*.jks`, `*.apk`, `*.aab` (git-ignored).
+- `?new=1` (manifest shortcut) opens the New bill form once, then is removed from the URL.
+
 ### UI conventions
 - Theme tokens are CSS variables on `:root`; dark overrides live under
   `:root[data-theme="dark"]`. Light is the default; the choice is saved in localStorage

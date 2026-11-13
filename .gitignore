@@ -43,3 +43,12 @@ next-env.d.ts
 
 # supabase cli
 supabase/.temp
+
+# android app (Bubblewrap) — never commit signing keys or build output
+android/*
+!android/twa-manifest.json
+*.keystore
+*.jks
+*.apk
+*.aab
+*.idsig

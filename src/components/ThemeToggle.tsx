@@ -5,8 +5,14 @@ import { MoonIcon, SunIcon } from "./icons";
 export type Theme = "light" | "dark";
 export const THEME_KEY = "billing-theme";
 
+const BAR = { light: "#ffffff", dark: "#171a21" };   // header colour = phone status bar colour
+
 /** Runs in <head> before the page paints, so a saved Dark choice never flashes Light. */
-export const themeInitScript = `try{if(localStorage.getItem("${THEME_KEY}")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
+export const themeInitScript = `try{if(localStorage.getItem("${THEME_KEY}")==="dark"){document.documentElement.dataset.theme="dark";addEventListener("DOMContentLoaded",function(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content="${BAR.dark}"})}}catch(e){}`;
+
+function setBarColor(theme: Theme) {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", BAR[theme]);
+}
 
 const read = (): Theme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
@@ -23,6 +29,7 @@ export default function ThemeToggle() {
   function toggle() {
     if (next === "dark") document.documentElement.dataset.theme = "dark";
     else delete document.documentElement.dataset.theme;
+    setBarColor(next);
     try { localStorage.setItem(THEME_KEY, next); } catch { /* private mode: still works for this visit */ }
   }
 
