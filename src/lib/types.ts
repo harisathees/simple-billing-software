@@ -51,8 +51,8 @@ export type Customer = {
   name: string;
   phone: string;
   address: string;
-  /** Items and invoice no of this customer's latest bill (to repeat an order quickly). */
-  lastItems: { product: string; qty: number; rate: number }[];
+  /** Product NAMES of this customer's latest bill (no qty/rate — those are typed). */
+  lastProducts: string[];
   lastInvoiceNo: number | null;
 };
 

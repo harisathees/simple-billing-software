@@ -33,7 +33,8 @@ export async function GET(req: Request) {
         name: r.name,
         phone: r.phone,
         address: r.address ?? "",
-        lastItems: items.map((i) => ({ product: i.product, qty: Number(i.qty) || 1, rate: Number(i.rate) || 0 })),
+        // Product names only — the rate (and qty) are always typed in the new bill.
+        lastProducts: [...new Set(items.map((i) => String(i.product ?? "").trim()).filter(Boolean))],
         lastInvoiceNo: r.invoice_no ?? null,
       });
       if (customers.length === 8) break;

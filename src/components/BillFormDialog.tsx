@@ -45,9 +45,10 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   const productRefs = useRef(new Map<number, HTMLInputElement>());
   const qtyRefs = useRef(new Map<number, HTMLInputElement>());
   const focusKey = useRef<number | null>(null);
-  const focusQtyKey = useRef<number | null>(null);
+  const rateRefs = useRef(new Map<number, HTMLInputElement>());
+  const focusRateKey = useRef<number | null>(null);
   // Items of the picked customer's last bill, offered when the form already has items.
-  const [lastOrder, setLastOrder] = useState<{ invoiceNo: number | null; items: Customer["lastItems"]; filled: boolean } | null>(null);
+  const [lastOrder, setLastOrder] = useState<{ invoiceNo: number | null; products: string[]; filled: boolean } | null>(null);
 
   const amounts = rows.map((r) => round2(Number(r.qty) * Number(r.rate)));
   const total = round2(amounts.reduce((s, a) => s + a, 0));
@@ -71,11 +72,10 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   const matches = q.length >= 2 ? found.filter((c) => digits(c.phone).includes(q)) : [];
   const sugOpen = showSug && matches.length > 0;
 
-  const lastRows = (items: Customer["lastItems"]) => items.map((i) => newRow(i.product, String(i.qty), String(i.rate)));
-
-  function fillFromLastBill(items: Customer["lastItems"]) {
-    const filled = lastRows(items);
-    focusQtyKey.current = filled[0]?.key ?? null;   // jump to the first Qty
+  // Product names only: qty starts at 1 and the rate is left empty to type.
+  function fillFromLastBill(products: string[]) {
+    const filled = products.map((p) => newRow(p));
+    focusRateKey.current = filled[0]?.key ?? null;   // jump to the first Rate
     setRows(filled);
   }
 
@@ -87,11 +87,11 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
     setActive(-1);
 
     const noItemsYet = rows.every((r) => !r.product.trim());
-    if (c.lastItems.length && noItemsYet) {
-      fillFromLastBill(c.lastItems);
-      setLastOrder({ invoiceNo: c.lastInvoiceNo, items: c.lastItems, filled: true });
+    if (c.lastProducts.length && noItemsYet) {
+      fillFromLastBill(c.lastProducts);
+      setLastOrder({ invoiceNo: c.lastInvoiceNo, products: c.lastProducts, filled: true });
     } else {
-      setLastOrder(c.lastItems.length ? { invoiceNo: c.lastInvoiceNo, items: c.lastItems, filled: false } : null);
+      setLastOrder(c.lastProducts.length ? { invoiceNo: c.lastInvoiceNo, products: c.lastProducts, filled: false } : null);
       productRefs.current.get(rows[0].key)?.focus();
     }
   }
@@ -211,16 +211,16 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
           {lastOrder && (
             <div className="last-order" role="status">
               {lastOrder.filled ? (
-                <>Filled {lastOrder.items.length} item{lastOrder.items.length === 1 ? "" : "s"} from their last bill
-                  {lastOrder.invoiceNo ? ` (#${lastOrder.invoiceNo})` : ""}. Change anything you need.</>
+                <>Added {lastOrder.products.length} product{lastOrder.products.length === 1 ? "" : "s"} from their last bill
+                  {lastOrder.invoiceNo ? ` (#${lastOrder.invoiceNo})` : ""}. Enter the qty and rate.</>
               ) : (
                 <>
                   Their last bill{lastOrder.invoiceNo ? ` (#${lastOrder.invoiceNo})` : ""} had{" "}
-                  {lastOrder.items.map((i) => i.product).join(", ")}.{" "}
+                  {lastOrder.products.join(", ")}.{" "}
                   <button
                     type="button" className="link-btn"
-                    onClick={() => { fillFromLastBill(lastOrder.items); setLastOrder({ ...lastOrder, filled: true }); }}
-                  >Use these items</button>
+                    onClick={() => { fillFromLastBill(lastOrder.products); setLastOrder({ ...lastOrder, filled: true }); }}
+                  >Use these products</button>
                 </>
               )}
             </div>
@@ -253,13 +253,18 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
                   ref={(el) => {
                     if (el) {
                       qtyRefs.current.set(r.key, el);
-                      if (focusQtyKey.current === r.key) { el.select(); focusQtyKey.current = null; }
                     } else qtyRefs.current.delete(r.key);
                   }}
                 />
                 <input
                   className="i-rate num-input" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Rate" aria-label="Rate" required
                   value={r.rate} onChange={(e) => setRow(r.key, { rate: e.target.value })}
+                  ref={(el) => {
+                    if (el) {
+                      rateRefs.current.set(r.key, el);
+                      if (focusRateKey.current === r.key) { el.focus(); focusRateKey.current = null; }
+                    } else rateRefs.current.delete(r.key);
+                  }}
                 />
                 <span className="i-amount" aria-label="Amount">{money(amounts[i])}</span>
                 <button
