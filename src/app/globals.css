@@ -679,3 +679,11 @@ main { padding-bottom: 104px; }        /* keep the last bill clear of the floati
 @media (max-width: 720px) {
   .fab-left { left: 16px; bottom: 16px; width: 52px; height: 52px; }
 }
+
+/* ---- Copy image button (invoice window) ---- */
+.copy-btn { display: inline-flex; align-items: center; gap: 6px; }
+.copy-btn svg { width: 16px; height: 16px; }
+@media (max-width: 720px) {
+  #invDlg .inv-foot .btns { width: 100%; }
+  #invDlg .inv-foot .btns button { flex: 1 1 auto; justify-content: center; }
+}

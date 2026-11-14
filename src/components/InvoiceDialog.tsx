@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { isEdited, pdfName } from "@/lib/format";
-import { downloadBlob, getInvoicePdf } from "@/lib/pdf";
+import { copyInvoiceImage, downloadBlob, getInvoiceImage, getInvoicePdf } from "@/lib/pdf";
 import { sendInvoice, type SendResult } from "@/lib/share";
 import type { Bill, Shop } from "@/lib/types";
 import InvoicePreview from "./InvoicePreview";
 import { EditedBadge } from "./BillsTable";
 import Modal from "./Modal";
 import DialogHeader from "./DialogHeader";
-import { WhatsAppIcon } from "./icons";
+import { CopyIcon, WhatsAppIcon } from "./icons";
 
 type Props = {
   open: boolean;
@@ -49,6 +49,22 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
     }
   }
 
+  // Copy the invoice as a PNG image to the clipboard (paste into WhatsApp, email, …).
+  // Browsers that can't copy images get the PNG downloaded instead.
+  async function copyImage() {
+    setStatus({ ok: true, msg: "Copying…" });
+    if (await copyInvoiceImage(bill, shop)) {
+      setStatus({ ok: true, msg: "Invoice image copied — paste it anywhere (WhatsApp, email, …)." });
+      return;
+    }
+    try {
+      downloadBlob(await getInvoiceImage(bill, shop), pdfName(bill).replace(/\.pdf$/, ".png"));
+      setStatus({ ok: true, msg: "This browser can't copy images, so the image was downloaded instead." });
+    } catch (err) {
+      setStatus({ ok: false, msg: `Couldn't create the image: ${(err as Error).message}` });
+    }
+  }
+
   async function send() {
     setBusy(true);
     setStatus({ ok: true, msg: cloudApi ? "Sending…" : "Preparing…" });
@@ -69,6 +85,9 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
           {status.chatUrl && <a href={status.chatUrl} target="_blank" rel="noopener noreferrer">Open WhatsApp chat</a>}
         </span>
         <div className="btns">
+          <button type="button" className="copy-btn" onClick={copyImage} disabled={busy} title="Copy the invoice as an image">
+            <CopyIcon /> Copy image
+          </button>
           <button type="button" onClick={download} disabled={busy}>Download PDF</button>
           <button type="button" className="wa-btn" onClick={send} disabled={busy}>
             <WhatsAppIcon /> Send to WhatsApp

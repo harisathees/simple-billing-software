@@ -116,3 +116,11 @@ export function DashboardIcon({ className }: P) {
 export function ArrowLeftIcon({ className }: P) {
   return <svg className={className} {...stroke}><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></svg>;
 }
+
+export function CopyIcon({ className }: P) {
+  return (
+    <svg className={className} {...stroke}>
+      <rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </svg>
+  );
+}
