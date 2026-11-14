@@ -37,6 +37,9 @@ export type BillsPage = {
 
 export type Customer = { name: string; phone: string; address: string };
 
+/** A product from earlier bills, with the rate from its latest bill. */
+export type ProductSuggestion = { product: string; rate: number; count: number };
+
 export type Shop = {
   name: string;
   slogan: string;

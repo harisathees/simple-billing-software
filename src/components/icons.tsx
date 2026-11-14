@@ -63,10 +63,6 @@ export function SunIcon({ className }: P) {
   );
 }
 
-export function ChevronUp({ className }: P) {
-  return <svg className={className} {...stroke} strokeWidth={2.5}><path d="m6 15 6-6 6 6" /></svg>;
-}
-
 export function ChevronDown({ className }: P) {
   return <svg className={className} {...stroke} strokeWidth={2.5}><path d="m6 9 6 6 6-6" /></svg>;
 }

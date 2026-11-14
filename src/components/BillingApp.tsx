@@ -272,7 +272,7 @@ export default function BillingApp() {
       </main>
 
       <BillFormDialog
-        open={form.open} bill={form.bill} nextInvoiceNo={nextInvoiceNo}
+        open={form.open} bill={form.bill} nextInvoiceNo={nextInvoiceNo} shop={shop}
         onClose={() => setForm({ open: false, bill: null })}
         onSaved={onSaved}
       />

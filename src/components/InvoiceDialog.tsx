@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { pdfName } from "@/lib/format";
 import { downloadBlob, getInvoicePdf } from "@/lib/pdf";
 import { sendInvoice, type SendResult } from "@/lib/share";
 import type { Bill, Shop } from "@/lib/types";
-import InvoiceSheet from "./InvoiceSheet";
+import InvoicePreview from "./InvoicePreview";
 import Modal from "./Modal";
 import DialogHeader from "./DialogHeader";
 import { WhatsAppIcon } from "./icons";
@@ -29,8 +29,6 @@ export default function InvoiceDialog(props: Props) {
 function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & { bill: Bill }) {
   const [busy, setBusy] = useState(true);
   const [status, setStatus] = useState<SendResult>(initialStatus ?? { ok: true, msg: "Preparing PDF…" });
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
 
   // Build the PDF in the background so Download / Send are instant.
   useEffect(() => {
@@ -40,25 +38,6 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
       .catch((err) => { if (live) { setBusy(false); setStatus({ ok: false, msg: `PDF failed: ${err.message}` }); } });
     return () => { live = false; };
   }, [bill, shop, initialStatus]);
-
-  // Scale the A4 sheet down to fit the dialog.
-  useLayoutEffect(() => {
-    const body = bodyRef.current, wrap = wrapRef.current;
-    if (!body || !wrap) return;
-    const fit = () => {
-      const sheet = wrap.firstElementChild as HTMLElement | null;
-      if (!sheet) return;
-      const s = Math.min(1, (body.clientWidth - 32) / 794);
-      sheet.style.transform = `scale(${s})`;
-      wrap.style.width = `${794 * s}px`;
-      wrap.style.height = `${sheet.offsetHeight * s}px`;
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(body);
-    wrap.querySelectorAll("img").forEach((img) => img.addEventListener("load", fit));
-    return () => ro.disconnect();
-  }, [bill, shop]);
 
   async function download() {
     try {
@@ -79,9 +58,7 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
   return (
     <>
       <DialogHeader title={`Invoice #${bill.invoice_no}`} onClose={onClose} />
-      <div className="inv-body" ref={bodyRef}>
-        <div className="inv-preview" ref={wrapRef}><InvoiceSheet bill={bill} shop={shop} /></div>
-      </div>
+      <InvoicePreview bill={bill} shop={shop} />
       <div className="dlg-foot inv-foot">
         <span className="inv-status" role="status">
           {status.msg}{" "}

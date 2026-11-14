@@ -1,5 +1,5 @@
 // Browser-side wrappers around our own Next.js API routes.
-import type { Bill, BillInput, BillsPage, Customer, Shop, ShopInput } from "./types";
+import type { Bill, BillInput, BillsPage, Customer, ProductSuggestion, Shop, ShopInput } from "./types";
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
@@ -33,6 +33,8 @@ export const api = {
   },
   findCustomers: (phone: string, signal?: AbortSignal) =>
     call<Customer[]>(`/api/customers?phone=${encodeURIComponent(phone)}`, { signal }),
+  findProducts: (q: string, signal?: AbortSignal) =>
+    call<ProductSuggestion[]>(`/api/products?q=${encodeURIComponent(q)}`, { signal }),
   createBill: (b: BillInput) => call<Bill>("/api/bills", json("POST", b)),
   updateBill: (id: number, b: BillInput) => call<Bill>(`/api/bills/${id}`, json("PUT", b)),
   deleteBill: (id: number) => call<void>(`/api/bills/${id}`, { method: "DELETE" }),

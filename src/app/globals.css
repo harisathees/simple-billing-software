@@ -250,7 +250,7 @@ button.wa-btn svg { width: 18px; height: 18px; }
     padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
   }
   .item-row .item-no   { grid-column: 1; grid-row: 1; }
-  .item-row .i-product { grid-column: 2 / 5; grid-row: 1; }
+  .item-row .i-product-wrap { grid-column: 2 / 5; grid-row: 1; }
   .item-row .i-remove  { grid-column: 5; grid-row: 1; }
   .item-row .i-qty     { grid-column: 2; grid-row: 2; }
   .item-row .i-rate    { grid-column: 3; grid-row: 2; }
@@ -285,25 +285,10 @@ button.icon-only:hover:not(:disabled) { background: var(--row-hover); }
 .act.icon.del:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .act.share { height: 32px; }
 
-/* ---- number inputs: hide the browser spinner, use small custom arrows ---- */
+/* ---- number inputs: no up/down arrows (type the number) ---- */
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
-.num-field { position: relative; min-width: 0; }
-.num-field input { padding-right: 24px; }
-.stepper {
-  position: absolute; top: 3px; bottom: 3px; right: 3px; width: 18px;
-  display: flex; flex-direction: column; gap: 1px;
-}
-.stepper button {
-  flex: 1; min-height: 0; padding: 0; border: none; border-radius: 4px;
-  background: transparent; color: var(--muted); display: grid; place-items: center;
-}
-.stepper button:hover { background: var(--row-hover); color: var(--accent); }
-.stepper button:active { background: var(--border); }
-.stepper svg { width: 11px; height: 11px; }
-.num-field:not(:hover):not(:focus-within) .stepper { opacity: .55; }
 
 /* ---- phones: bills become cards ---- */
 @media (max-width: 720px) {
@@ -506,3 +491,14 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .pw-toggle svg { width: 18px; height: 18px; }
 .login-btn { margin-top: 16px; height: 44px; font-size: 16px; }
 .login-card .error { margin-top: 8px; }
+
+/* ---- product field with suggestions ---- */
+.i-product-wrap { position: relative; min-width: 0; }
+.i-product-wrap input { width: 100%; }
+.suggest.product-suggest { top: calc(100% + 4px); min-width: 240px; }
+
+/* ---- Preview button + preview window ---- */
+.preview-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.preview-btn svg { width: 16px; height: 16px; }
+#previewDlg { width: min(880px, calc(100vw - 32px)); }
+#previewDlg .dlg-foot { justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }

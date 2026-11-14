@@ -2,16 +2,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { digits, money, round2, today } from "@/lib/format";
-import type { Bill, Customer } from "@/lib/types";
+import type { Bill, Customer, Shop } from "@/lib/types";
 import Modal from "./Modal";
-import { PlusIcon } from "./icons";
-import NumberField from "./NumberField";
+import { EyeIcon, PlusIcon } from "./icons";
 import DialogHeader from "./DialogHeader";
+import InvoicePreview from "./InvoicePreview";
+import ProductField from "./ProductField";
 
 type Props = {
   open: boolean;
   bill: Bill | null;          // null = new bill
   nextInvoiceNo: number;      // suggested number for a new bill
+  shop: Shop;                 // for the PDF preview
   onClose: () => void;
   onSaved: (bill: Bill, isEdit: boolean) => void;
 };
@@ -28,7 +30,7 @@ type Row = { key: number; product: string; qty: string; rate: string };
 let rowKey = 0;
 const newRow = (p = "", q = "1", r = ""): Row => ({ key: ++rowKey, product: p, qty: q, rate: r });
 
-function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
+function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   const isEdit = bill != null;
   const [invoiceNo, setInvoiceNo] = useState(String(bill?.invoice_no ?? nextInvoiceNo));
   const [date, setDate] = useState(bill?.bill_date ?? today());
@@ -40,7 +42,9 @@ function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const productRefs = useRef(new Map<number, HTMLInputElement>());
+  const qtyRefs = useRef(new Map<number, HTMLInputElement>());
   const focusKey = useRef<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const amounts = rows.map((r) => round2(Number(r.qty) * Number(r.rate)));
   const total = round2(amounts.reduce((s, a) => s + a, 0));
@@ -90,6 +94,26 @@ function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
     setRows((rs) => [...rs, r]);
   }
 
+  /** The bill exactly as it would be saved — used for the PDF preview. */
+  function draftBill(): Bill {
+    const items = rows
+      .filter((r) => r.product.trim())
+      .map((r) => {
+        const qty = Number(r.qty) || 0, rate = Number(r.rate) || 0;
+        return { product: r.product.trim(), qty, rate: round2(rate), amount: round2(qty * rate) };
+      });
+    return {
+      id: bill?.id ?? 0,
+      invoice_no: Number(invoiceNo) || 0,
+      bill_date: date,
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      items,
+      total: round2(items.reduce((s, i) => s + i.amount, 0)),
+    };
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const no = Number(invoiceNo);   // duplicates are rejected by the database (unique)
@@ -114,7 +138,10 @@ function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
       <div className="dlg-body">
         <div>
           <label htmlFor="f_invoice">Invoice No</label>
-          <NumberField id="f_invoice" min={1} step={1} stepMin={1} required value={invoiceNo} onChange={setInvoiceNo} />
+          <input
+            id="f_invoice" type="number" inputMode="numeric" min={1} step={1} required
+            value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)}
+          />
         </div>
         <div>
           <label htmlFor="f_date">Date</label>
@@ -164,23 +191,28 @@ function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
             {rows.map((r, i) => (
               <div className="item-row" key={r.key}>
                 <span className="item-no">{i + 1}</span>
-                <input
-                  className="i-product" type="text" placeholder="Product" aria-label="Product" required autoComplete="off"
-                  value={r.product} onChange={(e) => setRow(r.key, { product: e.target.value })}
-                  ref={(el) => {
+                <ProductField
+                  value={r.product}
+                  onChange={(v) => setRow(r.key, { product: v })}
+                  onPick={(sug) => {
+                    setRow(r.key, { product: sug.product, rate: String(sug.rate) });
+                    qtyRefs.current.get(r.key)?.select();          // jump to Qty
+                  }}
+                  inputRef={(el) => {
                     if (el) {
                       productRefs.current.set(r.key, el);
                       if (focusKey.current === r.key) { el.focus(); focusKey.current = null; }
                     } else productRefs.current.delete(r.key);
                   }}
                 />
-                <NumberField
-                  wrapperClassName="i-qty" className="num-input" min="0.01" step="any" stepMin={1}
+                <input
+                  className="i-qty num-input" type="number" inputMode="decimal" min="0.01" step="any"
                   placeholder="Qty" aria-label="Quantity" required
-                  value={r.qty} onChange={(v) => setRow(r.key, { qty: v })}
+                  value={r.qty} onChange={(e) => setRow(r.key, { qty: e.target.value })}
+                  ref={(el) => { if (el) qtyRefs.current.set(r.key, el); else qtyRefs.current.delete(r.key); }}
                 />
                 <input
-                  className="i-rate num-input" type="number" min="0" step="0.01" placeholder="Rate" aria-label="Rate" required
+                  className="i-rate num-input" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Rate" aria-label="Rate" required
                   value={r.rate} onChange={(e) => setRow(r.key, { rate: e.target.value })}
                 />
                 <span className="i-amount" aria-label="Amount">{money(amounts[i])}</span>
@@ -200,10 +232,26 @@ function BillForm({ bill, nextInvoiceNo, onClose, onSaved }: Props) {
         {error && <div className="error full">{error}</div>}
       </div>
       <div className="dlg-foot">
+        <button type="button" className="preview-btn" onClick={() => setPreviewOpen(true)}>
+          <EyeIcon /> Preview
+        </button>
         <button type="submit" className="primary" disabled={saving}>
           {saving ? (isEdit ? "Updating…" : "Saving…") : isEdit ? "Update" : "Save"}
         </button>
       </div>
+
+      {/* PDF preview of the bill as currently filled in (nothing is saved). */}
+      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} id="previewDlg">
+        <DialogHeader
+          title={`Preview — Invoice #${invoiceNo || "?"}`}
+          onClose={() => setPreviewOpen(false)}
+        />
+        <InvoicePreview bill={draftBill()} shop={shop} />
+        <div className="dlg-foot">
+          <span className="inv-status">This is how the PDF will look. Not saved yet.</span>
+          <button type="button" className="primary" onClick={() => setPreviewOpen(false)}>Back to editing</button>
+        </div>
+      </Modal>
     </form>
   );
 }
