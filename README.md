@@ -61,6 +61,8 @@ in filename order:
 |---|---|
 | `20261113000000_init.sql` | `shop_settings` and `bills` tables, Row Level Security, `shop-assets` logo bucket |
 | `20261113000100_search_and_paging.sql` | `phone_digits` and `search_text` columns used for search and customer lookup |
+| `20261114000000_soft_delete.sql` | `deleted_at` / `deleted_by` columns for soft delete |
+| `20261114000100_edited_flag.sql` | `is_edited` column (for the "Edited bills only" filter) + date/amount indexes |
 
 Apply everything that hasn't been applied yet:
 
@@ -104,7 +106,8 @@ There is **no sign-up page**. Only the owner can create accounts, from the proje
 npm run user:add -- owner@myshop.com        # asks for the password (hidden, min 8 chars)
 npm run user:list                            # who can log in, last sign-in
 npm run user:password -- owner@myshop.com    # change a password
-npm run user:remove -- staff@myshop.com      # delete a login
+npm run user:remove -- staff@myshop.com      # disable a login (can be restored)
+npm run user:restore -- staff@myshop.com     # re-enable a disabled login
 ```
 
 - No confirmation email is sent — the account works immediately.
@@ -158,6 +161,13 @@ shop details and logo. They appear in the header and on every invoice. The logou
 | More details | always shown in the table | **Show more ⌄** on each card |
 
 - **Search** matches invoice number, customer name, WhatsApp number, address and products.
+- **Filter** (button next to search): bill date (Today / This week / This month / Custom range),
+  total amount (min / max) and **Edited bills only**. Works together with search and scrolling;
+  "Filtered: …" above the list shows what's on, with **Clear**.
+- **Delete is a soft delete** (internal, no extra screens): the bill disappears from the app,
+  but the row stays in Supabase with `deleted_at` / `deleted_by` (when and who). Its invoice
+  number stays used, so it's never given to a new bill. To bring one back, clear `deleted_at`
+  on that row in Supabase → Table Editor → `bills`.
 - Bills load **10 at a time**, newest first; more load automatically as you scroll.
 - In the bill form, typing a WhatsApp number shows past customers; picking one fills the
   name and address.
@@ -265,6 +275,8 @@ again (and bump the version when asked) so installed apps pick up the change.
 - Server files in `src/lib/server/` start with `import "server-only"`, so the build fails if a
   browser component ever imports them by mistake.
 - The logo bucket is public-read (so the logo can be shown) and server-write only.
+- **Nothing is ever hard-deleted:** bills are soft-deleted (`deleted_at`), old logo files stay
+  in the bucket when replaced or removed, and removed logins are disabled, not erased.
 
 Check that no secret ended up in the browser build:
 
@@ -325,5 +337,6 @@ scripts/security-scan.py  npm run security:scan
 | `npm run user:add -- <email>` | create a login (password asked at a hidden prompt) |
 | `npm run user:list` | list logins |
 | `npm run user:password -- <email>` | change a password |
-| `npm run user:remove -- <email>` | delete a login |
+| `npm run user:remove -- <email>` | disable a login (soft delete) |
+| `npm run user:restore -- <email>` | re-enable a disabled login |
 | `npm run security:scan` | build and check that no secrets reach the browser |

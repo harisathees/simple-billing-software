@@ -16,10 +16,11 @@ export function fmtDate(d: string | null | undefined) {
   return `${day}-${m}-${y}`;
 }
 
-/** True if the bill was changed after it was first saved (updated_at is set on every edit). */
+/** True if the bill was changed after it was first saved (updated_at is set on every edit).
+ *  Same rule as the database column is_edited (updated_at > created_at). */
 export function isEdited(b: Pick<Bill, "created_at" | "updated_at">) {
   if (!b.created_at || !b.updated_at) return false;
-  return new Date(b.updated_at).getTime() - new Date(b.created_at).getTime() > 1000;
+  return new Date(b.updated_at).getTime() > new Date(b.created_at).getTime();
 }
 
 /** e.g. "14 Nov 2026, 10:32 am" in the user's time zone. */

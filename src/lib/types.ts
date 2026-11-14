@@ -16,6 +16,9 @@ export type Bill = {
   total: number;
   created_at?: string;
   updated_at?: string;
+  /** Soft delete (internal): set when the bill is deleted; such bills are never shown. */
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 
 /** What the form sends to the API. Amounts and total are recomputed on the server. */
@@ -26,6 +29,15 @@ export type BillInput = {
   address: string;
   phone: string;
   items: { product: string; qty: number; rate: number }[];
+};
+
+/** Filters for the bills list (all optional). Dates are YYYY-MM-DD (bill date). */
+export type BillFilters = {
+  from?: string;
+  to?: string;
+  min?: number;
+  max?: number;
+  edited?: boolean;
 };
 
 export type BillsPage = {

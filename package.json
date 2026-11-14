@@ -14,7 +14,8 @@
     "user:add": "node scripts/users.mjs add",
     "user:list": "node scripts/users.mjs list",
     "user:password": "node scripts/users.mjs password",
-    "user:remove": "node scripts/users.mjs remove"
+    "user:remove": "node scripts/users.mjs remove",
+    "user:restore": "node scripts/users.mjs restore"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

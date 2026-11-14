@@ -17,6 +17,7 @@ export async function GET(req: Request) {
       .from("bills")
       .select("name,phone,address,phone_digits,invoice_no,items")
       .ilike("phone_digits", `%${digits}%`)
+      .is("deleted_at", null)
       .order("bill_date", { ascending: false })
       .order("id", { ascending: false })
       .limit(60);

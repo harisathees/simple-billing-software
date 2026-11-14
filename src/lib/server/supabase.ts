@@ -30,10 +30,13 @@ export function errorResponse(err: unknown) {
   }
   const e = err as { code?: string; message?: string; status?: number };
   if (e?.code === "23505") {
-    return Response.json({ error: "That Invoice No already exists." }, { status: 409 });
+    return Response.json(
+      { error: "That Invoice No is already used. Each invoice number can only be used once." },
+      { status: 409 },
+    );
   }
   if (e?.code === "PGRST116") return Response.json({ error: "Not found." }, { status: 404 });
-  if (e?.code === "42703" || (e?.code === "PGRST204") || /search_text|phone_digits/.test(e?.message || "")) {
+  if (e?.code === "42703" || (e?.code === "PGRST204") || /search_text|phone_digits|is_edited|deleted_at/.test(e?.message || "")) {
     return Response.json(
       { error: "Database needs an update. Run `npm run db:push` (see README)." },
       { status: 500 },

@@ -1,5 +1,5 @@
 // Browser-side wrappers around our own Next.js API routes.
-import type { Bill, BillInput, BillsPage, Customer, ProductSuggestion, Shop, ShopInput } from "./types";
+import type { Bill, BillFilters, BillInput, BillsPage, Customer, ProductSuggestion, Shop, ShopInput } from "./types";
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
@@ -26,9 +26,15 @@ export const api = {
   logout: () => call<void>("/api/auth/logout", { method: "POST" }),
   me: () => call<{ email: string }>("/api/auth/me"),
 
-  listBills: (p: { q?: string; offset?: number; limit?: number }, signal?: AbortSignal) => {
+  listBills: (p: { q?: string; offset?: number; limit?: number; filters?: BillFilters }, signal?: AbortSignal) => {
     const sp = new URLSearchParams({ offset: String(p.offset ?? 0), limit: String(p.limit ?? 10) });
     if (p.q) sp.set("q", p.q);
+    const f = p.filters ?? {};
+    if (f.from) sp.set("from", f.from);
+    if (f.to) sp.set("to", f.to);
+    if (f.min != null) sp.set("min", String(f.min));
+    if (f.max != null) sp.set("max", String(f.max));
+    if (f.edited) sp.set("edited", "1");
     return call<BillsPage>(`/api/bills?${sp}`, { signal });
   },
   findCustomers: (phone: string, signal?: AbortSignal) =>
@@ -37,7 +43,7 @@ export const api = {
     call<ProductSuggestion[]>(`/api/products?q=${encodeURIComponent(q)}`, { signal }),
   createBill: (b: BillInput) => call<Bill>("/api/bills", json("POST", b)),
   updateBill: (id: number, b: BillInput) => call<Bill>(`/api/bills/${id}`, json("PUT", b)),
-  deleteBill: (id: number) => call<void>(`/api/bills/${id}`, { method: "DELETE" }),
+  deleteBill: (id: number) => call<void>(`/api/bills/${id}`, { method: "DELETE" }),   // soft delete (internal)
 
   getShop: () => call<Shop>("/api/shop"),
   saveShop: (s: ShopInput) => call<Shop>("/api/shop", json("PUT", s)),

@@ -8,7 +8,7 @@ function billId(raw: string) {
   return id;
 }
 
-// PUT /api/bills/:id — update a bill
+// PUT /api/bills/:id — update a bill (soft-deleted bills are left untouched)
 export async function PUT(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   try {
     await requireUser();
@@ -18,6 +18,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
       .from("bills")
       .update({ ...bill, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .is("deleted_at", null)
       .select(BILL_COLUMNS)
       .single();
     if (error) throw error;
@@ -27,12 +28,18 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   }
 }
 
-// DELETE /api/bills/:id
+// DELETE /api/bills/:id — SOFT delete (internal): the bill is only marked as deleted
+// (who + when) and disappears from the app. Nothing is erased from the database; if
+// ever needed, it can be brought back in Supabase by clearing deleted_at on that row.
 export async function DELETE(_req: Request, ctx: RouteContext<"/api/bills/[id]">) {
   try {
-    await requireUser();
+    const user = await requireUser();
     const id = billId((await ctx.params).id);
-    const { error } = await supabase().from("bills").delete().eq("id", id);
+    const { error } = await supabase()
+      .from("bills")
+      .update({ deleted_at: new Date().toISOString(), deleted_by: user.email ?? null })
+      .eq("id", id)
+      .is("deleted_at", null);
     if (error) throw error;
     return new Response(null, { status: 204 });
   } catch (err) {

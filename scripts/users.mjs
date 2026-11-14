@@ -6,7 +6,8 @@
 //   npm run user:add -- owner@shop.com        create a staff login (or allow an existing one)
 //   npm run user:list                          show all logins
 //   npm run user:password -- owner@shop.com    change a password
-//   npm run user:remove -- staff@shop.com      delete a login
+//   npm run user:remove -- staff@shop.com      disable a login (soft delete — can be restored)
+//   npm run user:restore -- staff@shop.com     re-enable a disabled login
 import { createRequire } from "node:module";
 import readline from "node:readline";
 
@@ -16,6 +17,8 @@ loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
 const { createClient } = require("@supabase/supabase-js");
 
 const STAFF_ROLE = "staff"; // must match src/lib/server/auth.ts
+const REMOVED_ROLE = "removed";
+const FOREVER = "876000h";   // ~100 years: Supabase "ban" = account can't sign in
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SECRET_KEY;
@@ -102,11 +105,13 @@ if (cmd === "add") {
   else {
     console.log("");
     for (const u of users) {
-      const staff = u.app_metadata?.role === STAFF_ROLE ? "staff  " : "BLOCKED";
+      const role = u.app_metadata?.role;
+      const staff = role === STAFF_ROLE ? "staff  " : role === REMOVED_ROLE ? "REMOVED" : "BLOCKED";
       const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "never";
       console.log(`  ${staff}  ${u.email}   (last sign-in: ${last})`);
     }
-    console.log("\n  staff = can use the app · BLOCKED = account exists but is not allowed\n");
+    console.log("\n  staff = can use the app · REMOVED = disabled with user:remove (restore with user:restore)");
+    console.log("  BLOCKED = account exists but was never allowed (not created with user:add)\n");
   }
 } else if (cmd === "password") {
   const email = emailArg(rest);
@@ -116,13 +121,27 @@ if (cmd === "add") {
   if (error) fail(error.message);
   console.log(`\n✔ Password changed for ${email}.\n`);
 } else if (cmd === "remove") {
+  // Soft delete: the login is disabled (banned + role "removed"), never erased.
   const email = emailArg(rest);
   const u = await findUser(email);
-  const ok = await ask(`Delete the login ${email}? Bills are not affected. (y/N) `);
+  const ok = await ask(`Disable the login ${email}? They won't be able to sign in. Bills are not affected. (y/N) `);
   if (ok.trim().toLowerCase() !== "y") fail("Cancelled.");
-  const { error } = await admin.deleteUser(u.id);
+  const { error } = await admin.updateUserById(u.id, {
+    ban_duration: FOREVER,
+    app_metadata: { ...u.app_metadata, role: REMOVED_ROLE },
+  });
   if (error) fail(error.message);
-  console.log(`\n✔ Removed ${email}. They are signed out the next time their session refreshes.\n`);
+  console.log(`\n✔ Disabled ${email}. They're signed out the next time their session is checked.`);
+  console.log(`  Undo with: npm run user:restore -- ${email}\n`);
+} else if (cmd === "restore") {
+  const email = emailArg(rest);
+  const u = await findUser(email);
+  const { error } = await admin.updateUserById(u.id, {
+    ban_duration: "none",
+    app_metadata: { ...u.app_metadata, role: STAFF_ROLE },
+  });
+  if (error) fail(error.message);
+  console.log(`\n✔ ${email} can log in again (same password as before).\n`);
 } else {
-  fail("Usage: npm run user:add|user:list|user:password|user:remove -- <email>");
+  fail("Usage: npm run user:add|user:list|user:password|user:remove|user:restore -- <email>");
 }

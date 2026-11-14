@@ -40,7 +40,6 @@ export async function POST(req: Request) {
     if (file.size > MAX_BYTES) throw new BadRequest("Logo must be smaller than 2 MB.");
 
     const db = supabase();
-    const old = await readShopRow();
     const path = `logo/${Date.now()}.${ext}`;
 
     const up = await db.storage.from(LOGO_BUCKET).upload(path, file, { contentType: file.type });
@@ -55,26 +54,25 @@ export async function POST(req: Request) {
       await db.storage.from(LOGO_BUCKET).remove([path]);
       throw error;
     }
-    if (old.logo_path) await db.storage.from(LOGO_BUCKET).remove([old.logo_path]); // keep storage tidy
+    // Soft delete: the previous logo file is kept in the bucket (never erased).
     return Response.json(toShop(data));
   } catch (err) {
     return errorResponse(err);
   }
 }
 
-// DELETE /api/shop/logo — remove the logo
+// DELETE /api/shop/logo — stop using the logo (the file itself is kept)
 export async function DELETE() {
   try {
     await requireUser();
     const db = supabase();
-    const old = await readShopRow();
     const { data, error } = await db
       .from("shop_settings")
       .upsert({ id: 1, logo_path: null, updated_at: new Date().toISOString() })
       .select()
       .single();
     if (error) throw error;
-    if (old.logo_path) await db.storage.from(LOGO_BUCKET).remove([old.logo_path]);
+    // Soft delete: only unlinked from the shop; the file stays in the bucket.
     return Response.json(toShop(data));
   } catch (err) {
     return errorResponse(err);

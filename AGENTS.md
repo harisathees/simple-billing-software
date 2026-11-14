@@ -79,6 +79,24 @@ src/components/*, src/lib/{api,pdf,share,format}.ts   (login gate)   src/app/api
   Use `npm run user:add`.
 - Responses only for logged-in users must not use `Cache-Control: public` (see the logo route).
 
+### Soft delete (no hard deletes anywhere)
+- Never call `.delete()` on a table or `storage.remove()` on user data. Bills are deleted by
+  setting `deleted_at` + `deleted_by` (`DELETE /api/bills/:id`). Soft delete is internal:
+  **there is deliberately no UI** for deleted bills or restoring them (owner's decision).
+- **Every query that reads bills must filter `.is("deleted_at", null)`** (list, customers,
+  products, WhatsApp send, update).
+- Next invoice number = max over *all* bills including deleted (numbers are never reused);
+  `invoice_no` stays globally unique.
+- Logos: replacing/removing only changes `shop_settings.logo_path`; old files stay.
+- Logins: `user:remove` bans the account and sets `app_metadata.role = "removed"`;
+  `user:restore` reverses it. Don't use `admin.deleteUser`.
+
+### Filters
+- `GET /api/bills` accepts `from`, `to` (bill_date, YYYY-MM-DD), `min`, `max` (total) and
+  `edited=1` (generated column `is_edited` = `updated_at > created_at`, migration 4).
+  Date presets are resolved on the client in local time (`toBillFilters` in `FilterPanel.tsx`;
+  weeks start Monday).
+
 ### Database
 - Schema changes go in a **new** file via `npm run db:new -- <name>`; never edit a
   migration that has been pushed. Make migrations re-runnable (`if not exists`,

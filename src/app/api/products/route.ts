@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     let query = supabase()
       .from("bills")
       .select("id,bill_date,items")
+      .is("deleted_at", null)
       .order("bill_date", { ascending: false })
       .order("id", { ascending: false })
       .limit(q ? 300 : 50);

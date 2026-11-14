@@ -99,3 +99,7 @@ export function EyeOffIcon({ className }: P) {
     </svg>
   );
 }
+
+export function FilterIcon({ className }: P) {
+  return <svg className={className} {...stroke}><path d="M3 5h18l-7 8v6l-4-2v-4Z" /></svg>;
+}

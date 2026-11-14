@@ -6,8 +6,8 @@ import { ChevronDown, EditIcon, EyeIcon, TrashIcon, WhatsAppIcon } from "./icons
 
 type Props = {
   bills: Bill[];
-  total: number;
-  query: string;
+  /** A search or filter is active (changes the empty-list message). */
+  filtered: boolean;
   sharingId: number | null;
   onView: (b: Bill) => void;
   onEdit: (b: Bill) => void;
@@ -16,7 +16,7 @@ type Props = {
 };
 
 /** Wide screens: a table. Phones (≤ 720 px): each row is restyled as a card in CSS. */
-export default function BillsTable({ bills, total, query, sharingId, onView, onEdit, onShare, onDelete }: Props) {
+export default function BillsTable({ bills, filtered, sharingId, onView, onEdit, onShare, onDelete }: Props) {
   // Phones only: which cards are expanded to show WhatsApp, address and items.
   const [open, setOpen] = useState<Set<number>>(() => new Set());
   const toggle = (id: number) =>
@@ -86,7 +86,7 @@ export default function BillsTable({ bills, total, query, sharingId, onView, onE
       </table>
       {bills.length === 0 && (
         <div className="empty">
-          {query && total ? "No bills match your search." : <>No bills yet. Click <b>+ New</b> to add one.</>}
+          {filtered ? "No bills match your search or filters." : <>No bills yet. Click <b>+ New</b> to add one.</>}
         </div>
       )}
     </div>
@@ -102,3 +102,4 @@ export function EditedBadge({ when }: { when?: string }) {
     </span>
   );
 }
+

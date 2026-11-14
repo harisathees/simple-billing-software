@@ -1,27 +1,32 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { sendInvoice, type SendResult } from "@/lib/share";
-import { EMPTY_SHOP, type Bill, type Shop } from "@/lib/types";
+import { EMPTY_SHOP, type Bill, type BillFilters, type Shop } from "@/lib/types";
 import BillFormDialog from "./BillFormDialog";
 import BillsTable from "./BillsTable";
+import FilterPanel, { activeFilterCount, filterSummary, NO_FILTERS, toBillFilters, type FilterState } from "./FilterPanel";
 import InvoiceDialog from "./InvoiceDialog";
 import SettingsDialog from "./SettingsDialog";
 import ThemeToggle from "./ThemeToggle";
-import { GearIcon, LogoutIcon, PlusIcon, SearchIcon } from "./icons";
+import { FilterIcon, GearIcon, LogoutIcon, PlusIcon, SearchIcon } from "./icons";
 
 const PAGE_SIZE = 10;
 
 type Load = { state: "loading" } | { state: "ready" } | { state: "error"; message: string };
 /** The bills currently on screen for search `q` (newest first). */
-type List = { bills: Bill[]; total: number; nextOffset: number | null; q: string };
+type List = { bills: Bill[]; total: number; nextOffset: number | null; q: string; filters: BillFilters };
 
 const byNewest = (a: Bill, b: Bill) => b.invoice_no - a.invoice_no;
 
 export default function BillingApp() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
-  const [list, setList] = useState<List>({ bills: [], total: 0, nextOffset: null, q: "" });
+  const [list, setList] = useState<List>({ bills: [], total: 0, nextOffset: null, q: "", filters: {} });
+  const [filterState, setFilterState] = useState<FilterState>(NO_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filters = useMemo(() => toBillFilters(filterState), [filterState]);
+  const filterCount = activeFilterCount(filters);
   const [nextInvoiceNo, setNextInvoiceNo] = useState(1);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -64,14 +69,14 @@ export default function BillingApp() {
   }, [shop.name]);
 
   /* ---- first page for the current search (debounced while typing) ---- */
-  const fetchFirstPage = useCallback((q: string) => {
+  const fetchFirstPage = useCallback((q: string, filters: BillFilters) => {
     const id = ++reqId.current;
     setSearching(true);
     setMoreError("");
-    api.listBills({ q, offset: 0, limit: PAGE_SIZE })
+    api.listBills({ q, offset: 0, limit: PAGE_SIZE, filters })
       .then((page) => {
         if (id !== reqId.current) return;
-        setList({ bills: page.bills, total: page.total, nextOffset: page.nextOffset, q });
+        setList({ bills: page.bills, total: page.total, nextOffset: page.nextOffset, q, filters });
         setNextInvoiceNo(page.nextInvoiceNo);
         setLoad({ state: "ready" });
         // App shortcut ("New bill" on the home-screen icon) → open the form once.
@@ -91,9 +96,9 @@ export default function BillingApp() {
   useEffect(() => {
     const delay = firstFetch.current ? 0 : 300;
     firstFetch.current = false;
-    const t = window.setTimeout(() => fetchFirstPage(query.trim().toLowerCase()), delay);
+    const t = window.setTimeout(() => fetchFirstPage(query.trim().toLowerCase(), filters), delay);
     return () => window.clearTimeout(t);
-  }, [query, reloadKey, fetchFirstPage]);
+  }, [query, filters, reloadKey, fetchFirstPage]);
 
   /* ---- infinite scroll: load the next 10 when the bottom comes into view ---- */
   useEffect(() => { listRef.current = list; }, [list]);
@@ -104,7 +109,7 @@ export default function BillingApp() {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     const id = reqId.current;
-    api.listBills({ q: cur.q, offset: cur.nextOffset, limit: PAGE_SIZE })
+    api.listBills({ q: cur.q, offset: cur.nextOffset, limit: PAGE_SIZE, filters: cur.filters })
       .then((page) => {
         if (id !== reqId.current) return;
         setList((l) => {
@@ -143,6 +148,8 @@ export default function BillingApp() {
       setList((l) => ({ ...l, bills: l.bills.map((b) => (b.id === saved.id ? saved : b)).sort(byNewest) }));
     } else if (list.q) {
       setQuery("");                               // leave the search so the new bill is visible
+    } else if (activeFilterCount(list.filters) > 0) {
+      fetchFirstPage("", list.filters);           // reload: the new bill may or may not match
     } else {
       setList((l) => {
         const last = l.bills[l.bills.length - 1];
@@ -158,6 +165,7 @@ export default function BillingApp() {
     }
   }
 
+  // Soft delete (internal): the bill is only marked deleted in the database.
   async function onDelete(bill: Bill) {
     if (!confirm(`Delete invoice #${bill.invoice_no} for ${bill.name}?`)) return;
     try {
@@ -245,14 +253,32 @@ export default function BillingApp() {
                     value={query} onChange={(e) => setQuery(e.target.value)}
                   />
                 </div>
+                <button
+                  type="button" className={`filter-btn${filterCount ? " on" : ""}${filtersOpen ? " open" : ""}`}
+                  onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}
+                  title="Filter bills" aria-label={filterCount ? `Filters (${filterCount} on)` : "Filters"}
+                >
+                  <FilterIcon />
+                  <span className="filter-btn-text">Filter</span>
+                  {filterCount > 0 && <span className="filter-count">{filterCount}</span>}
+                </button>
                 {/* PC only — phones use the floating button */}
                 <button className="primary new-toolbar" onClick={() => setForm({ open: true, bill: null })}>
                   <PlusIcon /> New
                 </button>
               </div>
             </div>
+            {filtersOpen && (
+              <FilterPanel value={filterState} onChange={setFilterState} onClear={() => setFilterState(NO_FILTERS)} />
+            )}
+            {!filtersOpen && filterCount > 0 && (
+              <div className="filter-summary">
+                <span><b>Filtered:</b> {filterSummary(filterState, filters)} · {list.total} bill{list.total === 1 ? "" : "s"}</span>
+                <button className="link-btn" onClick={() => setFilterState(NO_FILTERS)}>Clear</button>
+              </div>
+            )}
             <BillsTable
-              bills={list.bills} total={list.total} query={list.q} sharingId={sharingId}
+              bills={list.bills} filtered={!!list.q || activeFilterCount(list.filters) > 0} sharingId={sharingId}
               onView={(b) => setInvoice({ bill: b, status: null })}
               onEdit={(b) => setForm({ open: true, bill: b })}
               onShare={onShare}

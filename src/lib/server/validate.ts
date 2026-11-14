@@ -4,7 +4,8 @@ import type { Bill, Item, ShopInput } from "@/lib/types";
 import { BadRequest } from "./supabase";
 
 /** Columns sent to the browser (the generated search columns stay on the server). */
-export const BILL_COLUMNS = "id,invoice_no,name,bill_date,address,phone,items,total,created_at,updated_at";
+export const BILL_COLUMNS =
+  "id,invoice_no,name,bill_date,address,phone,items,total,created_at,updated_at,deleted_at,deleted_by";
 
 const str = (v: unknown, max = 500) => String(v ?? "").trim().slice(0, max);
 

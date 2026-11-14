@@ -57,7 +57,8 @@ export async function POST(req: Request) {
     if (file.size > 10 * 1024 * 1024) throw new BadRequest("PDF is too large.");
 
     // The phone number always comes from the database, never from the request.
-    const { data, error } = await supabase().from("bills").select("*").eq("id", billId).single();
+    const { data, error } = await supabase()
+      .from("bills").select("*").eq("id", billId).is("deleted_at", null).single();
     if (error) throw error;
     const bill = normalizeBill(data);
     const shop = await readShopRow();
