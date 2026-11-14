@@ -13,7 +13,7 @@ type Props = {
   open: boolean;
   bill: Bill | null;          // null = new bill
   nextInvoiceNo: number;      // suggested number for a new bill
-  shop: Shop;                 // for the PDF preview
+  shop: Shop;                 // for the full invoice preview before saving
   onClose: () => void;
   onSaved: (bill: Bill, isEdit: boolean) => void;
 };
@@ -40,11 +40,14 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   const [rows, setRows] = useState<Row[]>(() =>
     bill?.items.length ? bill.items.map((i) => newRow(i.product, String(i.qty), String(i.rate))) : [newRow()]);
   const [error, setError] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const productRefs = useRef(new Map<number, HTMLInputElement>());
   const qtyRefs = useRef(new Map<number, HTMLInputElement>());
   const focusKey = useRef<number | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const focusQtyKey = useRef<number | null>(null);
+  // Items of the picked customer's last bill, offered when the form already has items.
+  const [lastOrder, setLastOrder] = useState<{ invoiceNo: number | null; items: Customer["lastItems"]; filled: boolean } | null>(null);
 
   const amounts = rows.map((r) => round2(Number(r.qty) * Number(r.rate)));
   const total = round2(amounts.reduce((s, a) => s + a, 0));
@@ -68,13 +71,29 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   const matches = q.length >= 2 ? found.filter((c) => digits(c.phone).includes(q)) : [];
   const sugOpen = showSug && matches.length > 0;
 
+  const lastRows = (items: Customer["lastItems"]) => items.map((i) => newRow(i.product, String(i.qty), String(i.rate)));
+
+  function fillFromLastBill(items: Customer["lastItems"]) {
+    const filled = lastRows(items);
+    focusQtyKey.current = filled[0]?.key ?? null;   // jump to the first Qty
+    setRows(filled);
+  }
+
   function pick(c: Customer) {
     setPhone(c.phone);
     setName(c.name);
     setAddress(c.address);
     setShowSug(false);
     setActive(-1);
-    productRefs.current.get(rows[0].key)?.focus();
+
+    const noItemsYet = rows.every((r) => !r.product.trim());
+    if (c.lastItems.length && noItemsYet) {
+      fillFromLastBill(c.lastItems);
+      setLastOrder({ invoiceNo: c.lastInvoiceNo, items: c.lastItems, filled: true });
+    } else {
+      setLastOrder(c.lastItems.length ? { invoiceNo: c.lastInvoiceNo, items: c.lastItems, filled: false } : null);
+      productRefs.current.get(rows[0].key)?.focus();
+    }
   }
 
   function onPhoneKey(e: React.KeyboardEvent) {
@@ -94,14 +113,12 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
     setRows((rs) => [...rs, r]);
   }
 
-  /** The bill exactly as it would be saved — used for the PDF preview. */
+  /** The bill exactly as it will be saved — shown in the preview. */
   function draftBill(): Bill {
-    const items = rows
-      .filter((r) => r.product.trim())
-      .map((r) => {
-        const qty = Number(r.qty) || 0, rate = Number(r.rate) || 0;
-        return { product: r.product.trim(), qty, rate: round2(rate), amount: round2(qty * rate) };
-      });
+    const items = rows.map((r) => {
+      const qty = Number(r.qty) || 0, rate = round2(r.rate);
+      return { product: r.product.trim(), qty, rate, amount: round2(qty * rate) };
+    });
     return {
       id: bill?.id ?? 0,
       invoice_no: Number(invoiceNo) || 0,
@@ -114,8 +131,15 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
     };
   }
 
-  async function submit(e: React.FormEvent) {
+  // Step 1: "Preview" button — the browser checks required fields, then we show the invoice.
+  function openPreview(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    setPreviewOpen(true);
+  }
+
+  // Step 2: "Save" inside the preview.
+  async function save() {
     const no = Number(invoiceNo);   // duplicates are rejected by the database (unique)
     setSaving(true);
     setError("");
@@ -133,7 +157,7 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
   }
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={openPreview}>
       <DialogHeader title={isEdit ? `Edit Bill — Invoice #${bill.invoice_no}` : "New Bill"} onClose={onClose} />
       <div className="dlg-body">
         <div>
@@ -175,7 +199,7 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
               ))}
             </ul>
           )}
-          <div className="hint">Start typing — existing customers appear; pick one to fill customer name &amp; address.</div>
+          <div className="hint">Start typing — existing customers appear; pick one to fill the name, address and the items from their last bill.</div>
         </div>
         <div className="full">
           <label htmlFor="f_address">Address</label>
@@ -184,6 +208,23 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
 
         <div className="full">
           <div className="section-title items-title">Items</div>
+          {lastOrder && (
+            <div className="last-order" role="status">
+              {lastOrder.filled ? (
+                <>Filled {lastOrder.items.length} item{lastOrder.items.length === 1 ? "" : "s"} from their last bill
+                  {lastOrder.invoiceNo ? ` (#${lastOrder.invoiceNo})` : ""}. Change anything you need.</>
+              ) : (
+                <>
+                  Their last bill{lastOrder.invoiceNo ? ` (#${lastOrder.invoiceNo})` : ""} had{" "}
+                  {lastOrder.items.map((i) => i.product).join(", ")}.{" "}
+                  <button
+                    type="button" className="link-btn"
+                    onClick={() => { fillFromLastBill(lastOrder.items); setLastOrder({ ...lastOrder, filled: true }); }}
+                  >Use these items</button>
+                </>
+              )}
+            </div>
+          )}
           <div className="items-head" aria-hidden="true">
             <span>#</span><span>Product</span><span className="r">Qty</span><span className="r">Rate</span><span className="r">Amount</span><span />
           </div>
@@ -209,7 +250,12 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
                   className="i-qty num-input" type="number" inputMode="decimal" min="0.01" step="any"
                   placeholder="Qty" aria-label="Quantity" required
                   value={r.qty} onChange={(e) => setRow(r.key, { qty: e.target.value })}
-                  ref={(el) => { if (el) qtyRefs.current.set(r.key, el); else qtyRefs.current.delete(r.key); }}
+                  ref={(el) => {
+                    if (el) {
+                      qtyRefs.current.set(r.key, el);
+                      if (focusQtyKey.current === r.key) { el.select(); focusQtyKey.current = null; }
+                    } else qtyRefs.current.delete(r.key);
+                  }}
                 />
                 <input
                   className="i-rate num-input" type="number" inputMode="decimal" min="0" step="0.01" placeholder="Rate" aria-label="Rate" required
@@ -232,26 +278,31 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
         {error && <div className="error full">{error}</div>}
       </div>
       <div className="dlg-foot">
-        <button type="button" className="preview-btn" onClick={() => setPreviewOpen(true)}>
+        <button type="submit" className="primary preview-btn">
           <EyeIcon /> Preview
-        </button>
-        <button type="submit" className="primary" disabled={saving}>
-          {saving ? (isEdit ? "Updating…" : "Saving…") : isEdit ? "Update" : "Save"}
         </button>
       </div>
 
-      {/* PDF preview of the bill as currently filled in (nothing is saved). */}
-      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} id="previewDlg">
+      {/* Full invoice preview — check everything, then Save. */}
+      <Modal open={previewOpen} onClose={() => !saving && setPreviewOpen(false)} id="previewDlg">
         <DialogHeader
-          title={`Preview — Invoice #${invoiceNo || "?"}`}
-          onClose={() => setPreviewOpen(false)}
+          title={`Preview — Invoice #${invoiceNo}`}
+          onClose={() => !saving && setPreviewOpen(false)}
         />
         <InvoicePreview bill={draftBill()} shop={shop} />
         <div className="dlg-foot">
-          <span className="inv-status">This is how the PDF will look. Not saved yet.</span>
-          <button type="button" className="primary" onClick={() => setPreviewOpen(false)}>Back to editing</button>
+          <span className={error ? "error" : "inv-status"} role="status">
+            {error || "Check the bill. Nothing is saved until you press Save."}
+          </span>
+          <div className="btns">
+            <button type="button" onClick={() => setPreviewOpen(false)} disabled={saving}>Back to edit</button>
+            <button type="button" className="primary" onClick={save} disabled={saving}>
+              {saving ? (isEdit ? "Updating…" : "Saving…") : isEdit ? "Update" : "Save"}
+            </button>
+          </div>
         </div>
       </Modal>
+
     </form>
   );
 }

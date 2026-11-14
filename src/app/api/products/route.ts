@@ -5,47 +5,41 @@ import type { Item, ProductSuggestion } from "@/lib/types";
 
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m);
 
-// GET /api/products?q=ric — products used in earlier bills that contain the text,
-// most-used first, each with the rate from its latest bill.
+// GET /api/products?q=ric — products from earlier bills, MOST RECENTLY USED FIRST,
+// each with the rate from the latest bill it appeared on. With no q, returns the
+// most recently billed products (shown when an empty Product box is tapped).
 // Uses the existing search_text column to find candidate bills (no extra table).
 export async function GET(req: Request) {
   await connection();
   try {
     await requireUser();
     const q = (new URL(req.url).searchParams.get("q") || "").trim().toLowerCase().slice(0, 60);
-    if (!q) return Response.json([]);
 
-    const { data, error } = await supabase()
+    let query = supabase()
       .from("bills")
       .select("id,bill_date,items")
-      .ilike("search_text", `%${likeEscape(q)}%`)
       .order("bill_date", { ascending: false })
       .order("id", { ascending: false })
-      .limit(300);
+      .limit(q ? 300 : 50);
+    if (q) query = query.ilike("search_text", `%${likeEscape(q)}%`);
+    const { data, error } = await query;
     if (error) throw error;
 
-    const byName = new Map<string, ProductSuggestion & { last: string }>();
+    // Bills come newest first, so the first time a product is seen is its most recent use.
+    const byName = new Map<string, ProductSuggestion>();
     for (const bill of data ?? []) {
       for (const it of (Array.isArray(bill.items) ? bill.items : []) as Item[]) {
         const name = String(it.product ?? "").trim();
-        if (!name || !name.toLowerCase().includes(q)) continue;
+        if (!name || (q && !name.toLowerCase().includes(q))) continue;
         const key = name.toLowerCase();
         const seen = byName.get(key);
-        if (seen) seen.count++;            // bills are newest first, so the first rate seen is the latest
-        else byName.set(key, { product: name, rate: Number(it.rate) || 0, count: 1, last: bill.bill_date });
+        if (seen) seen.count++;
+        else byName.set(key, { product: name, rate: Number(it.rate) || 0, count: 1, lastUsed: bill.bill_date });
       }
     }
 
-    const list = [...byName.values()]
-      .sort((a, b) => {
-        // names starting with the typed text first, then most used, then most recent
-        const sa = a.product.toLowerCase().startsWith(q) ? 0 : 1;
-        const sb = b.product.toLowerCase().startsWith(q) ? 0 : 1;
-        return sa - sb || b.count - a.count || b.last.localeCompare(a.last);
-      })
-      .slice(0, 8)
-      .map(({ product, rate, count }) => ({ product, rate, count }));
-    return Response.json(list);
+    // Map keeps insertion order = most recent first.
+    return Response.json([...byName.values()].slice(0, 8));
   } catch (err) {
     return errorResponse(err);
   }

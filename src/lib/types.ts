@@ -35,10 +35,17 @@ export type BillsPage = {
   nextInvoiceNo: number;      // highest invoice no + 1
 };
 
-export type Customer = { name: string; phone: string; address: string };
+export type Customer = {
+  name: string;
+  phone: string;
+  address: string;
+  /** Items and invoice no of this customer's latest bill (to repeat an order quickly). */
+  lastItems: { product: string; qty: number; rate: number }[];
+  lastInvoiceNo: number | null;
+};
 
-/** A product from earlier bills, with the rate from its latest bill. */
-export type ProductSuggestion = { product: string; rate: number; count: number };
+/** A product from earlier bills, with the rate and date of the latest bill it was on. */
+export type ProductSuggestion = { product: string; rate: number; count: number; lastUsed: string };
 
 export type Shop = {
   name: string;

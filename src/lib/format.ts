@@ -16,6 +16,18 @@ export function fmtDate(d: string | null | undefined) {
   return `${day}-${m}-${y}`;
 }
 
+/** True if the bill was changed after it was first saved (updated_at is set on every edit). */
+export function isEdited(b: Pick<Bill, "created_at" | "updated_at">) {
+  if (!b.created_at || !b.updated_at) return false;
+  return new Date(b.updated_at).getTime() - new Date(b.created_at).getTime() > 1000;
+}
+
+/** e.g. "14 Nov 2026, 10:32 am" in the user's time zone. */
+export function fmtDateTime(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
 /** Today's date as YYYY-MM-DD in the user's local time zone. */
 export const today = () => new Date().toLocaleDateString("en-CA");
 

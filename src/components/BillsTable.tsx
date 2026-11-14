@@ -1,5 +1,5 @@
 "use client";
-import { fmtDate, money, waLink } from "@/lib/format";
+import { fmtDate, fmtDateTime, isEdited, money, waLink } from "@/lib/format";
 import type { Bill } from "@/lib/types";
 import { useState } from "react";
 import { ChevronDown, EditIcon, EyeIcon, TrashIcon, WhatsAppIcon } from "./icons";
@@ -34,7 +34,10 @@ export default function BillsTable({ bills, total, query, sharingId, onView, onE
         <tbody>
           {bills.map((b) => (
             <tr key={b.id} className={open.has(b.id) ? "open" : undefined}>
-              <td className="num c-inv"><span className="inv-no">{b.invoice_no}</span></td>
+              <td className="num c-inv">
+                <span className="inv-no">{b.invoice_no}</span>
+                {isEdited(b) && <EditedBadge when={b.updated_at} />}
+              </td>
               <td className="c-name">{b.name}</td>
               <td className="num c-phone">
                 <a className="wa" href={waLink(b.phone)} target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp">
@@ -87,5 +90,15 @@ export default function BillsTable({ bills, total, query, sharingId, onView, onE
         </div>
       )}
     </div>
+  );
+}
+
+/** Small "Edited" pill; hover/long-press shows when. */
+export function EditedBadge({ when }: { when?: string }) {
+  const at = fmtDateTime(when);
+  return (
+    <span className="badge-edited" title={at ? `Edited on ${at}` : "Edited"} aria-label={at ? `Edited on ${at}` : "Edited"}>
+      Edited
+    </span>
   );
 }

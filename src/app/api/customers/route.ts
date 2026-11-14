@@ -1,10 +1,11 @@
 import { requireUser } from "@/lib/server/auth";
 import { connection } from "next/server";
 import { errorResponse, supabase } from "@/lib/server/supabase";
-import type { Customer } from "@/lib/types";
+import type { Customer, Item } from "@/lib/types";
 
 // GET /api/customers?phone=98765 — past customers whose WhatsApp number contains
-// these digits (latest name/address per number), for the bill form's lookup.
+// these digits, for the bill form's lookup: latest name/address per number plus the
+// items of their latest bill (so picking a customer can fill the products too).
 export async function GET(req: Request) {
   await connection();
   try {
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase()
       .from("bills")
-      .select("name,phone,address,phone_digits")
+      .select("name,phone,address,phone_digits,invoice_no,items")
       .ilike("phone_digits", `%${digits}%`)
       .order("bill_date", { ascending: false })
       .order("id", { ascending: false })
@@ -26,7 +27,14 @@ export async function GET(req: Request) {
     for (const r of data ?? []) {
       if (seen.has(r.phone_digits)) continue;   // newest row per number wins
       seen.add(r.phone_digits);
-      customers.push({ name: r.name, phone: r.phone, address: r.address ?? "" });
+      const items = (Array.isArray(r.items) ? r.items : []) as Item[];
+      customers.push({
+        name: r.name,
+        phone: r.phone,
+        address: r.address ?? "",
+        lastItems: items.map((i) => ({ product: i.product, qty: Number(i.qty) || 1, rate: Number(i.rate) || 0 })),
+        lastInvoiceNo: r.invoice_no ?? null,
+      });
       if (customers.length === 8) break;
     }
     return Response.json(customers);

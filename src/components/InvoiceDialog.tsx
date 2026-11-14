@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { pdfName } from "@/lib/format";
+import { isEdited, pdfName } from "@/lib/format";
 import { downloadBlob, getInvoicePdf } from "@/lib/pdf";
 import { sendInvoice, type SendResult } from "@/lib/share";
 import type { Bill, Shop } from "@/lib/types";
 import InvoicePreview from "./InvoicePreview";
+import { EditedBadge } from "./BillsTable";
 import Modal from "./Modal";
 import DialogHeader from "./DialogHeader";
 import { WhatsAppIcon } from "./icons";
@@ -57,7 +58,10 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
 
   return (
     <>
-      <DialogHeader title={`Invoice #${bill.invoice_no}`} onClose={onClose} />
+      <DialogHeader
+        title={<>Invoice #{bill.invoice_no}{isEdited(bill) && <EditedBadge when={bill.updated_at} />}</>}
+        onClose={onClose}
+      />
       <InvoicePreview bill={bill} shop={shop} />
       <div className="dlg-foot inv-foot">
         <span className="inv-status" role="status">

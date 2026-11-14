@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useState } from "react";
 import { api } from "@/lib/api";
-import { money } from "@/lib/format";
+import { fmtDate, money } from "@/lib/format";
 import type { ProductSuggestion } from "@/lib/types";
 
 type Props = {
@@ -20,18 +20,19 @@ export default function ProductField({ value, onChange, onPick, inputRef }: Prop
   const q = value.trim().toLowerCase();
   const listId = useId();
 
+  // Fetch while the box is focused: recent products when empty, matches when typing.
   useEffect(() => {
-    if (q.length < 1) return;
+    if (!open) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       api.findProducts(q, ctrl.signal).then(setFound).catch(() => { /* typing on: ignore */ });
-    }, 200);
+    }, q ? 200 : 0);
     return () => { clearTimeout(t); ctrl.abort(); };
-  }, [q]);
+  }, [q, open]);
 
   // Only show results that still match the text (drops stale responses), and hide
   // the list once the field already holds exactly that product.
-  const matches = q ? found.filter((s) => s.product.toLowerCase().includes(q)) : [];
+  const matches = found.filter((s) => s.product.toLowerCase().includes(q));
   const exact = matches.length === 1 && matches[0].product.toLowerCase() === q;
   const show = open && matches.length > 0 && !exact;
 
@@ -70,7 +71,7 @@ export default function ProductField({ value, onChange, onPick, inputRef }: Prop
             >
               <div className="s-phone">{s.product}</div>
               <div className="s-meta">
-                Last rate {money(s.rate)} · used {s.count} time{s.count === 1 ? "" : "s"}
+                Last rate {money(s.rate)} · last billed {fmtDate(s.lastUsed)}
               </div>
             </li>
           ))}
