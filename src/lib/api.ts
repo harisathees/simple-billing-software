@@ -1,5 +1,5 @@
 // Browser-side wrappers around our own Next.js API routes.
-import type { Bill, BillFilters, BillInput, BillsPage, Customer, ProductSuggestion, Shop, ShopInput } from "./types";
+import type { Bill, BillFilters, BillInput, BillsPage, Customer, DashboardData, ProductSuggestion, Shop, ShopInput } from "./types";
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
@@ -45,6 +45,8 @@ export const api = {
   updateBill: (id: number, b: BillInput) => call<Bill>(`/api/bills/${id}`, json("PUT", b)),
   deleteBill: (id: number) => call<void>(`/api/bills/${id}`, { method: "DELETE" }),   // soft delete (internal)
 
+  /** today = the user's local date (YYYY-MM-DD), so "today"/"this month" match their clock. */
+  dashboard: (today: string) => call<DashboardData>(`/api/dashboard?today=${encodeURIComponent(today)}`),
   getShop: () => call<Shop>("/api/shop"),
   saveShop: (s: ShopInput) => call<Shop>("/api/shop", json("PUT", s)),
   uploadLogo: (file: Blob) => {

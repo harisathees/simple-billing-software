@@ -76,3 +76,15 @@ export type ShopInput = Omit<Shop, "logo_url">;
 export const EMPTY_SHOP: Shop = {
   name: "", slogan: "", address: "", phone: "", email: "", website: "", terms: "", logo_url: null,
 };
+
+/** GET /api/dashboard — totals over all live (not deleted) bills. */
+export type DashboardData = {
+  totals: { invoices: number; amount: number; average: number; customers: number };
+  today: { invoices: number; amount: number };
+  thisMonth: { invoices: number; amount: number };
+  lastMonth: { invoices: number; amount: number };
+  /** Last 12 months, oldest first. month = "YYYY-MM". */
+  months: { month: string; invoices: number; amount: number }[];
+  topCustomers: { name: string; phone: string; invoices: number; amount: number }[];
+  topProducts: { product: string; qty: number; amount: number }[];
+};

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { sendInvoice, type SendResult } from "@/lib/share";
@@ -9,7 +10,7 @@ import FilterPanel, { activeFilterCount, filterSummary, NO_FILTERS, toBillFilter
 import InvoiceDialog from "./InvoiceDialog";
 import SettingsDialog from "./SettingsDialog";
 import ThemeToggle from "./ThemeToggle";
-import { FilterIcon, GearIcon, LogoutIcon, PlusIcon, SearchIcon } from "./icons";
+import { DashboardIcon, FilterIcon, GearIcon, LogoutIcon, PlusIcon, SearchIcon } from "./icons";
 
 const PAGE_SIZE = 10;
 
@@ -312,6 +313,12 @@ export default function BillingApp() {
         onClose={() => setSettingsOpen(false)}
         onSaved={(s) => { setShop(s); setSettingsOpen(false); notify("Settings saved"); }}
       />
+
+      {ready && (
+        <Link href="/dashboard" className="fab-left" title="Dashboard" aria-label="Dashboard">
+          <DashboardIcon />
+        </Link>
+      )}
 
       {ready && (
         <button

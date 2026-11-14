@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // The round "N" dev badge sat on the bottom-left Dashboard button. Errors still show in dev.
+  devIndicators: false,
 
   async headers() {
     return [

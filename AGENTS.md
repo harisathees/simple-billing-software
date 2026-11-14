@@ -91,6 +91,15 @@ src/components/*, src/lib/{api,pdf,share,format}.ts   (login gate)   src/app/api
 - Logins: `user:remove` bans the account and sets `app_metadata.role = "removed"`;
   `user:restore` reverses it. Don't use `admin.deleteUser`.
 
+### Dashboard
+- `/dashboard` page → `GET /api/dashboard?today=YYYY-MM-DD` → `loadDashboard()` in
+  `src/lib/server/dashboard.ts` (reads live bills in pages of 1000 and aggregates in JS — no SQL
+  function/migration). `today` comes from the client so "today"/"this month" use local time.
+- Chart (`MonthlyChart.tsx`) follows the dataviz rules: one series (no legend), ≤24px columns
+  with 4px rounded tops, hairline grid, hover/focus/tap tooltip, only the latest month labelled,
+  and a table view. Pages that read request data at render need a `<Suspense>` boundary
+  (Cache Components), and client code must not read `new Date()` during render.
+
 ### Filters
 - `GET /api/bills` accepts `from`, `to` (bill_date, YYYY-MM-DD), `min`, `max` (total) and
   `edited=1` (generated column `is_edited` = `updated_at > created_at`, migration 4).

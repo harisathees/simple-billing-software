@@ -160,6 +160,9 @@ shop details and logo. They appear in the header and on every invoice. The logou
 | Delete | 🗑 icon | 🗑 icon |
 | More details | always shown in the table | **Show more ⌄** on each card |
 
+- **Dashboard** (grid icon, top right): total billed and invoices created, today, this month
+  (vs last month), average bill, a 12-month chart (tap a month for details, or **Show table**),
+  top customers and top products. Deleted bills aren't counted.
 - **Search** matches invoice number, customer name, WhatsApp number, address and products.
 - **Filter** (button next to search): bill date (Today / This week / This month / Custom range),
   total amount (min / max) and **Edited bills only**. Works together with search and scrolling;
@@ -304,6 +307,7 @@ src/
     api/whatsapp/         optional Cloud API sending
     api/auth/             login, logout, me
     login/                sign-in page
+    dashboard/            dashboard page (figures from /api/dashboard)
     manifest.ts           PWA manifest (/manifest.webmanifest)
     .well-known/assetlinks.json/  Android app ↔ site link (from TWA_* env vars)
     layout.tsx, page.tsx, globals.css
