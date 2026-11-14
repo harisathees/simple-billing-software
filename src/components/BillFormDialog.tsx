@@ -236,7 +236,7 @@ function BillForm({ bill, nextInvoiceNo, shop, onClose, onSaved }: Props) {
                   value={r.product}
                   onChange={(v) => setRow(r.key, { product: v })}
                   onPick={(sug) => {
-                    setRow(r.key, { product: sug.product, rate: String(sug.rate) });
+                    setRow(r.key, { product: sug.product });         // name only — rate is typed
                     qtyRefs.current.get(r.key)?.select();          // jump to Qty
                   }}
                   inputRef={(el) => {

@@ -56,8 +56,8 @@ export type Customer = {
   lastInvoiceNo: number | null;
 };
 
-/** A product from earlier bills, with the rate and date of the latest bill it was on. */
-export type ProductSuggestion = { product: string; rate: number; count: number; lastUsed: string };
+/** A product name from earlier bills, with the date of the latest bill it was on. */
+export type ProductSuggestion = { product: string; count: number; lastUsed: string };
 
 export type Shop = {
   name: string;

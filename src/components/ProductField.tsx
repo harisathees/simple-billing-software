@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useId, useState } from "react";
 import { api } from "@/lib/api";
-import { fmtDate, money } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import type { ProductSuggestion } from "@/lib/types";
 
 type Props = {
   value: string;
   onChange: (v: string) => void;
-  /** Called when a suggestion is chosen (fills product name + its last rate). */
+  /** Called when a suggestion is chosen (fills the product name only). */
   onPick: (s: ProductSuggestion) => void;
   inputRef?: (el: HTMLInputElement | null) => void;
 };
@@ -71,7 +71,7 @@ export default function ProductField({ value, onChange, onPick, inputRef }: Prop
             >
               <div className="s-phone">{s.product}</div>
               <div className="s-meta">
-                Last rate {money(s.rate)} · last billed {fmtDate(s.lastUsed)}
+                Last billed {fmtDate(s.lastUsed)}
               </div>
             </li>
           ))}

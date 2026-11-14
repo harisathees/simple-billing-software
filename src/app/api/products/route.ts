@@ -5,8 +5,8 @@ import type { Item, ProductSuggestion } from "@/lib/types";
 
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (m) => "\\" + m);
 
-// GET /api/products?q=ric — products from earlier bills, MOST RECENTLY USED FIRST,
-// each with the rate from the latest bill it appeared on. With no q, returns the
+// GET /api/products?q=ric — product names from earlier bills, MOST RECENTLY USED FIRST
+// (names only — the rate is always typed in the bill). With no q, returns the
 // most recently billed products (shown when an empty Product box is tapped).
 // Uses the existing search_text column to find candidate bills (no extra table).
 export async function GET(req: Request) {
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
         const key = name.toLowerCase();
         const seen = byName.get(key);
         if (seen) seen.count++;
-        else byName.set(key, { product: name, rate: Number(it.rate) || 0, count: 1, lastUsed: bill.bill_date });
+        else byName.set(key, { product: name, count: 1, lastUsed: bill.bill_date });
       }
     }
 
