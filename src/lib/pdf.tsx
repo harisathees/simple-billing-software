@@ -56,6 +56,9 @@ const canvasToPng = (canvas: HTMLCanvasElement) =>
 const canvases = new Map<string, Promise<HTMLCanvasElement>>();
 const pdfs = new Map<string, Promise<Blob>>();
 const pngs = new Map<string, Promise<Blob>>();
+// Finished files, readable synchronously. Sharing/copying must start *during* the tap
+// (phones only allow it for a few seconds after a tap), so we never wait for rendering then.
+const ready = new Map<string, Blob>();
 
 function remember<T>(map: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> {
   let p = map.get(key);
@@ -68,30 +71,54 @@ function remember<T>(map: Map<string, Promise<T>>, key: string, make: () => Prom
   return p;
 }
 
+function keepReady(kind: "pdf" | "png", key: string, p: Promise<Blob>) {
+  p.then((b) => {
+    ready.set(`${kind}:${key}`, b);
+    if (ready.size > 40) ready.delete(ready.keys().next().value!);
+  }, () => {});
+  return p;
+}
+
 const keyOf = (bill: Bill, shop: Shop) => JSON.stringify([bill, shop]);
 const getCanvas = (bill: Bill, shop: Shop) => remember(canvases, keyOf(bill, shop), () => renderCanvas(bill, shop));
 
 export function getInvoicePdf(bill: Bill, shop: Shop): Promise<Blob> {
-  return remember(pdfs, keyOf(bill, shop), () => getCanvas(bill, shop).then(canvasToPdf));
+  const key = keyOf(bill, shop);
+  return remember(pdfs, key, () => keepReady("pdf", key, getCanvas(bill, shop).then(canvasToPdf)));
 }
 
 /** The invoice as a PNG image (same rendering as the PDF). */
 export function getInvoiceImage(bill: Bill, shop: Shop): Promise<Blob> {
-  return remember(pngs, keyOf(bill, shop), () => getCanvas(bill, shop).then(canvasToPng));
+  const key = keyOf(bill, shop);
+  return remember(pngs, key, () => keepReady("png", key, getCanvas(bill, shop).then(canvasToPng)));
 }
 
+/** Start building both files (call when an invoice is opened). */
+export function prepareInvoiceFiles(bill: Bill, shop: Shop) {
+  return Promise.all([getInvoicePdf(bill, shop), getInvoiceImage(bill, shop)]);
+}
+
+/** Already-built files, or null if they're still being made. */
+export const readyPdf = (bill: Bill, shop: Shop) => ready.get(`pdf:${keyOf(bill, shop)}`) ?? null;
+export const readyImage = (bill: Bill, shop: Shop) => ready.get(`png:${keyOf(bill, shop)}`) ?? null;
+
 /**
- * Copy the invoice image to the clipboard. The ClipboardItem gets the *promise* of the
- * image, so the copy still counts as part of the tap even if the image takes a moment
- * (Safari/iOS require this). Returns false if this browser can't copy images.
+ * Copy the invoice image to the clipboard. Uses the ready image when there is one
+ * (most compatible — older Chromium/Samsung Internet don't accept promises here),
+ * otherwise the promise (Safari/iOS need the copy to start during the tap).
+ * Returns the error name on failure, or null on success.
  */
-export async function copyInvoiceImage(bill: Bill, shop: Shop): Promise<boolean> {
-  if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write || !window.isSecureContext) return false;
+export async function copyInvoiceImage(bill: Bill, shop: Shop): Promise<string | null> {
+  if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write || !window.isSecureContext) {
+    return "NotSupported";
+  }
+  if (typeof ClipboardItem.supports === "function" && !ClipboardItem.supports("image/png")) return "NotSupported";
   try {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": getInvoiceImage(bill, shop) })]);
-    return true;
-  } catch {
-    return false;
+    const img = readyImage(bill, shop) ?? getInvoiceImage(bill, shop);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": img })]);
+    return null;
+  } catch (err) {
+    return (err as Error).name || "Error";
   }
 }
 

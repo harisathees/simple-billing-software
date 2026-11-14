@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { isEdited, pdfName } from "@/lib/format";
-import { copyInvoiceImage, downloadBlob, getInvoiceImage, getInvoicePdf } from "@/lib/pdf";
+import { copyInvoiceImage, downloadBlob, getInvoiceImage, getInvoicePdf, prepareInvoiceFiles, readyImage } from "@/lib/pdf";
 import { sendInvoice, type SendResult } from "@/lib/share";
 import type { Bill, Shop } from "@/lib/types";
 import InvoicePreview from "./InvoicePreview";
@@ -29,13 +29,14 @@ export default function InvoiceDialog(props: Props) {
 
 function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & { bill: Bill }) {
   const [busy, setBusy] = useState(true);
-  const [status, setStatus] = useState<SendResult>(initialStatus ?? { ok: true, msg: "Preparing PDF…" });
+  const [status, setStatus] = useState<SendResult>(initialStatus ?? { ok: true, msg: "Preparing the invoice…" });
 
-  // Build the PDF in the background so Download / Send are instant.
+  // Build the PDF and the image first, so Copy / Download / Send work instantly on tap
+  // (phones only allow sharing/copying for a few seconds after a tap).
   useEffect(() => {
     let live = true;
-    getInvoicePdf(bill, shop)
-      .then(() => { if (live) { setBusy(false); if (!initialStatus) setStatus({ ok: true, msg: "PDF ready." }); } })
+    prepareInvoiceFiles(bill, shop)
+      .then(() => { if (live) { setBusy(false); if (!initialStatus) setStatus({ ok: true, msg: "Ready." }); } })
       .catch((err) => { if (live) { setBusy(false); setStatus({ ok: false, msg: `PDF failed: ${err.message}` }); } });
     return () => { live = false; };
   }, [bill, shop, initialStatus]);
@@ -50,16 +51,34 @@ function InvoiceView({ bill, shop, cloudApi, initialStatus, onClose }: Props & {
   }
 
   // Copy the invoice as a PNG image to the clipboard (paste into WhatsApp, email, …).
-  // Browsers that can't copy images get the PNG downloaded instead.
+  // If this phone/browser can't copy images: share the image instead, else download it.
   async function copyImage() {
-    setStatus({ ok: true, msg: "Copying…" });
-    if (await copyInvoiceImage(bill, shop)) {
-      setStatus({ ok: true, msg: "Invoice image copied — paste it anywhere (WhatsApp, email, …)." });
+    const pngName = pdfName(bill).replace(/\.pdf$/, ".png");
+    const failed = await copyInvoiceImage(bill, shop);
+    if (!failed) {
+      const phone = window.matchMedia?.("(pointer: coarse)").matches;
+      setStatus({
+        ok: true,
+        msg: phone
+          ? "Image copied. In WhatsApp, paste it from your keyboard's clipboard. If it won't paste, use Send to WhatsApp."
+          : "Invoice image copied — paste it anywhere (WhatsApp, email, …).",
+      });
       return;
     }
+    const png = readyImage(bill, shop);
+    const file = png && new File([png], pngName, { type: "image/png" });
+    if (file && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: pngName });
+        setStatus({ ok: true, msg: "This phone can't copy images, so the share menu opened with the image instead." });
+        return;
+      } catch (err) {
+        if ((err as Error).name === "AbortError") { setStatus({ ok: true, msg: "" }); return; }
+      }
+    }
     try {
-      downloadBlob(await getInvoiceImage(bill, shop), pdfName(bill).replace(/\.pdf$/, ".png"));
-      setStatus({ ok: true, msg: "This browser can't copy images, so the image was downloaded instead." });
+      downloadBlob(png ?? (await getInvoiceImage(bill, shop)), pngName);
+      setStatus({ ok: true, msg: `This browser can't copy images (${failed}), so the image was downloaded instead.` });
     } catch (err) {
       setStatus({ ok: false, msg: `Couldn't create the image: ${(err as Error).message}` });
     }

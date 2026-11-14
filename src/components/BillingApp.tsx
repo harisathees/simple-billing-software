@@ -187,7 +187,10 @@ export default function BillingApp() {
     setSharingId(bill.id);
     try {
       const res = await sendInvoice(bill, shop, cloudApi);
-      if (res.chatUrl) setInvoice({ bill, status: res });   // popup blocked: show link in the dialog
+      if (res.notReady) {
+        // Not built yet (slow phone): open the invoice; Send works instantly once it's ready.
+        setInvoice({ bill, status: { ok: true, msg: "Tap Send to WhatsApp to share this invoice." } });
+      } else if (res.chatUrl) setInvoice({ bill, status: res });   // couldn't share: show the chat link
       else if (res.msg) notify(res.msg);
     } finally {
       setSharingId(null);
