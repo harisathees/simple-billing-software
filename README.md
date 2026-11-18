@@ -1,4 +1,4 @@
-# Billing
+# Billing  ----> [hari-billing.netlify.app](https://hari-billing.netlify.app/)
 
 A small billing app for a shop: create bills with multiple items, see them as a
 printable invoice, download the invoice as a PDF, and send it to the customer on WhatsApp.
@@ -10,6 +10,9 @@ printable invoice, download the invoice as a PDF, and send it to the customer on
 - Light / dark theme, phone-friendly layout, search, and infinite scroll (10 bills at a time)
 - **Installable app (PWA)** and ready for **Bubblewrap** to build an Android **APK / AAB**
 
+Login cred
+hari@gmail.com
+12345678
 ---
 
 ## 1. Requirements
